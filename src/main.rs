@@ -1,10 +1,9 @@
 use std::num::NonZeroU32;
 use std::ops::Deref;
-use std::rc::Rc;
 use std::sync::{Arc, Weak};
 
 use femtovg::renderer::OpenGl;
-use femtovg::{Canvas, Color, Renderer};
+use femtovg::{Canvas, Color};
 use glutin::surface::Surface;
 use glutin::{context::PossiblyCurrentContext, display::Display};
 use glutin_winit::DisplayBuilder;
@@ -23,7 +22,7 @@ use glutin::{
 };
 use taffy::Taffy;
 use weak_table::PtrWeakKeyHashMap;
-use crate::nodes::{Node, render_recursively};
+use crate::nodes::{Node, render_recursively, RenderContext};
 
 mod nodes;
 
@@ -32,12 +31,12 @@ type TaffyMap = PtrWeakKeyHashMap<Weak<GNode>, taffy::node::Node>;
 
 fn main() {
     let event_loop = EventLoop::new();
-    let (context, gl_display, window, surface) = create_window(&event_loop);
+    let (buffer_context, gl_display, window, surface) = create_window(&event_loop);
 
     let renderer = unsafe { OpenGl::new_from_function_cstr(|s| gl_display.get_proc_address(s) as *const _) }
         .expect("Cannot create renderer");
 
-    let mut canvas = Canvas::new(renderer).expect("Cannot create canvas");
+    let canvas = Canvas::new(renderer).expect("Cannot create canvas");
 
     let mut taffy = Taffy::new();
     let mut taffy_map = TaffyMap::new();
@@ -48,6 +47,10 @@ fn main() {
 
     taffy_map.insert(root.clone(), root_node);
 
+    let mut context = RenderContext {
+        canvas
+    };
+
     event_loop.run(move |event, _target, control_flow| match event {
         Event::WindowEvent { event, .. } => match event {
             // WindowEvent::CursorMoved { position, .. } => {
@@ -57,13 +60,13 @@ fn main() {
             WindowEvent::Resized(size) => {
                 let width: NonZeroU32 = NonZeroU32::new(size.width).unwrap();
                 let height: NonZeroU32 = NonZeroU32::new(size.height).unwrap();
-                surface.resize(&context, width, height);
+                surface.resize(&buffer_context, width, height);
                 window.request_redraw();
             },
             _ => {}
         },
         Event::RedrawRequested(_) => {
-            render(&context, &surface, &window, &mut canvas, &root, &taffy_map, &taffy);
+            render(&buffer_context, &surface, &window, &mut context, &root, &taffy_map, &taffy);
         },
         _ => {}
     })
@@ -108,25 +111,25 @@ fn create_window(event_loop: &EventLoop<()>) -> (PossiblyCurrentContext, Display
 }
 
 fn render(
-    context: &PossiblyCurrentContext,
+    buffer_context: &PossiblyCurrentContext,
     surface: &Surface<WindowSurface>,
     window: &Window,
-    canvas: &mut Canvas<OpenGl>,
+    context: &mut RenderContext<OpenGl>,
     root_node: &Arc<GNode>,
     taffy_map: &TaffyMap,
     taffy: &Taffy
 ) {
     // Make sure the canvas has the right size:
     let size = window.inner_size();
-    canvas.set_size(size.width, size.height, window.scale_factor() as f32);
-    canvas.scale(1., -1.); // layout is bottom to top, canvas is top to bottom, this might make it easier?
-    canvas.clear_rect(0, 0, size.width, size.height, Color::black());
+    context.canvas.set_size(size.width, size.height, window.scale_factor() as f32);
+    context.canvas.scale(1., -1.); // layout is bottom to top, canvas is top to bottom, this might make it easier?
+    context.canvas.clear_rect(0, 0, size.width, size.height, Color::black());
 
     // Do the render passes here
-    render_recursively(root_node, canvas, taffy_map, taffy);
+    render_recursively(root_node, context, taffy_map, taffy);
 
     // Tell renderer to execute all drawing commands
-    canvas.flush();
+    context.canvas.flush();
     // Display what we've just rendered
-    surface.swap_buffers(context).expect("Could not swap buffers");
+    surface.swap_buffers(buffer_context).expect("Could not swap buffers");
 }
