@@ -110,9 +110,9 @@ fn main() {
                 let height: NonZeroU32 = NonZeroU32::new(size.height).unwrap();
                 surface.resize(&buffer_context, width, height);
                 let mut groot = groot.write().unwrap();
-                let scale_factor = window.scale_factor();
-                groot.style.layout.size.width = Dimension::Points(size.width as f32 * scale_factor as f32);
-                groot.style.layout.size.height = Dimension::Points(size.height as f32 * scale_factor as f32);
+                // let scale_factor = window.scale_factor();
+                groot.style.layout.size.width = Dimension::Points(size.width as f32);
+                groot.style.layout.size.height = Dimension::Points(size.height as f32);
                 drop(groot);
                 window.request_redraw();
             },
@@ -131,7 +131,7 @@ fn main() {
                 }
             }
             context.taffy.compute_layout(*context.taffy_map.get(&root).unwrap(), Size::MAX_CONTENT).unwrap();
-            // dbg!(&root);
+            dbg!(&root);
             render(&buffer_context, &surface, &window, &mut context, &root);
         },
         _ => {}

@@ -86,7 +86,7 @@ pub fn render_recursively(node: &SharedGNode, context: &mut RenderContext<OpenGl
     let sself = node.clone();
     context.canvas.save();
     context.canvas.translate(layout.location.x, layout.location.y);
-    dbg!(node, layout);
+    // dbg!(node, layout);
     match styles.overflow {
         Overflow::Visible => {},
         Overflow::Hidden => {
