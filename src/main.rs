@@ -22,7 +22,7 @@ use glutin::{
 };
 use taffy::Taffy;
 use weak_table::PtrWeakKeyHashMap;
-use crate::nodes::{Node, render_recursively, RenderContext};
+use crate::nodes::{layout_recursively, Node, render_recursively, RenderContext};
 
 mod nodes;
 
@@ -48,7 +48,9 @@ fn main() {
     taffy_map.insert(root.clone(), root_node);
 
     let mut context = RenderContext {
-        canvas
+        canvas,
+        taffy_map,
+        taffy
     };
 
     event_loop.run(move |event, _target, control_flow| match event {
@@ -66,7 +68,16 @@ fn main() {
             _ => {}
         },
         Event::RedrawRequested(_) => {
-            render(&buffer_context, &surface, &window, &mut context, &root, &taffy_map, &taffy);
+            layout_recursively(&root, &mut context);
+            let src_nodes = context.taffy_map.values().map(|v| v.to_owned()).collect::<Vec<_>>();
+            context.taffy_map.remove_expired();
+            let dst_nodes = context.taffy_map.values().map(|v| v.to_owned()).collect::<Vec<_>>();
+            for src_node in src_nodes {
+                if !dst_nodes.contains(&src_node) {
+                    context.taffy.remove(src_node).unwrap();
+                }
+            }
+            render(&buffer_context, &surface, &window, &mut context, &root);
         },
         _ => {}
     })
@@ -115,9 +126,7 @@ fn render(
     surface: &Surface<WindowSurface>,
     window: &Window,
     context: &mut RenderContext<OpenGl>,
-    root_node: &Arc<GNode>,
-    taffy_map: &TaffyMap,
-    taffy: &Taffy
+    root_node: &Arc<GNode>
 ) {
     // Make sure the canvas has the right size:
     let size = window.inner_size();
@@ -126,7 +135,7 @@ fn render(
     context.canvas.clear_rect(0, 0, size.width, size.height, Color::black());
 
     // Do the render passes here
-    render_recursively(root_node, context, taffy_map, taffy);
+    render_recursively(root_node, context);
 
     // Tell renderer to execute all drawing commands
     context.canvas.flush();
