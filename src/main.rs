@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 use std::ops::Deref;
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, Weak};
+use std::sync::{Arc, RwLock, Weak};
 
 use femtovg::renderer::OpenGl;
 use femtovg::{Canvas, Color};
@@ -30,9 +30,10 @@ use crate::nodes::layout::Layout;
 
 mod nodes;
 
-type GNode = dyn Node<OpenGl>;
-type SharedGNode = Arc<RwLock<GNode>>;
-type TaffyMap = PtrWeakKeyHashMap<Weak<RwLock<GNode>>, taffy::node::Node>;
+type TNode<T> = dyn Node<T>;
+type SharedTNode<T> = Arc<RwLock<TNode<T>>>;
+type TaffyMap<T> = PtrWeakKeyHashMap<Weak<RwLock<TNode<T>>>, taffy::node::Node>;
+type CurrentRenderer = OpenGl;
 
 fn main() {
     let event_loop = EventLoop::new();
@@ -46,7 +47,7 @@ fn main() {
     let mut taffy = Taffy::new();
     let mut taffy_map = TaffyMap::new();
 
-    let mut root = Layout::<OpenGl>::new();
+    let mut root = Layout::<CurrentRenderer>::new();
     root.style.layout.display = taffy::style::Display::Flex;
     root.style.layout.flex_direction = taffy::style::FlexDirection::Row;
     root.children.push(Arc::new(RwLock::new(nodes::primitives::Rectangle {
@@ -61,7 +62,7 @@ fn main() {
             }
         },
         color: Color::rgb(255, 0, 0),
-        radius: 0.
+        radius: 10.
     })));
     root.children.push(Arc::new(RwLock::new(nodes::primitives::Rectangle {
         style: Style {
@@ -75,13 +76,13 @@ fn main() {
             }
         },
         color: Color::rgb(0, 255, 0),
-        radius: 10.
+        radius: 0.
     })));
-    let groot: Arc<RwLock<Layout<OpenGl>>> = Arc::new(RwLock::new(root));
+    let groot: Arc<RwLock<Layout<CurrentRenderer>>> = Arc::new(RwLock::new(root));
     {
         let clonned = groot.clone();
         let root = clonned.read().unwrap();
-        let root_style = GNode::style(root.deref());
+        let root_style = TNode::<OpenGl>::style(root.deref());
         let root_layout = root_style.layout.to_owned();
         let root_node = taffy.new_leaf(root_layout).unwrap();
 
@@ -90,12 +91,13 @@ fn main() {
 
     let mut context = RenderContext {
         canvas,
-        taffy_map,
+        node_layout: taffy_map,
         taffy
     };
 
     // let mut width: u32 = 0;
     // let mut height: u32 = 0;
+    let mut should_recompute = true;
 
     event_loop.run(move |event, _target, control_flow| match event {
         Event::WindowEvent { event, .. } => match event {
@@ -115,23 +117,33 @@ fn main() {
                 groot.style.layout.size.height = Dimension::Points(size.height as f32);
                 drop(groot);
                 window.request_redraw();
+                should_recompute = true;
             },
             _ => {}
         },
         Event::RedrawRequested(_) => {
-            let root: Arc<RwLock<GNode>> = groot.clone();
-            layout_recursively(&root, &mut context);
-            let src_nodes = context.taffy_map.values().map(|v| v.to_owned()).collect::<Vec<_>>();
-            context.taffy_map.remove_expired();
-            let dst_nodes = context.taffy_map.values().map(|v| v.to_owned()).collect::<Vec<_>>();
-            for src_node in src_nodes {
-                if !dst_nodes.contains(&src_node) {
-                    context.taffy.remove(src_node).unwrap();
-                    dbg!("Removed node", src_node);
+            let root: SharedTNode<CurrentRenderer> = groot.clone();
+            if should_recompute {
+                layout_recursively(&root, &mut context);
+                let src_nodes = context.node_layout.values().map(|v| v.to_owned()).collect::<Vec<_>>();
+                context.node_layout.remove_expired();
+                let dst_nodes = context.node_layout.values().map(|v| v.to_owned()).collect::<Vec<_>>();
+                for src_node in src_nodes {
+                    if !dst_nodes.contains(&src_node) {
+                        context.taffy.remove(src_node).unwrap();
+                        dbg!("Removed node", src_node);
+                    }
                 }
+                for (node, taffy_node) in context.node_layout.iter() {
+                    let node = node.read().unwrap();
+                    let node_style = node.style();
+                    context.taffy.set_style(*taffy_node, node_style.layout.to_owned()).unwrap();
+                }
+                context.taffy.compute_layout(*context.node_layout.get(&root).unwrap(), Size::MAX_CONTENT).unwrap();
+                should_recompute = false;
+                // dbg!("recomputed");
             }
-            context.taffy.compute_layout(*context.taffy_map.get(&root).unwrap(), Size::MAX_CONTENT).unwrap();
-            dbg!(&root);
+            // dbg!(&root);
             render(&buffer_context, &surface, &window, &mut context, &root);
         },
         _ => {}
@@ -180,13 +192,14 @@ fn render(
     buffer_context: &PossiblyCurrentContext,
     surface: &Surface<WindowSurface>,
     window: &Window,
-    context: &mut RenderContext<OpenGl>,
-    root_node: &Arc<RwLock<GNode>>
+    context: &mut RenderContext<CurrentRenderer>,
+    root_node: &SharedTNode<CurrentRenderer>
 ) {
     // Make sure the canvas has the right size:
     let size = window.inner_size();
+    context.canvas.reset();
     context.canvas.set_size(size.width, size.height, window.scale_factor() as f32);
-    context.canvas.scale(1., -1.); // layout is bottom to top, canvas is top to bottom, this might make it easier?
+    // context.canvas.scale(1., -1.); // layout is bottom to top, canvas is top to bottom, this might make it easier?
     context.canvas.clear_rect(0, 0, size.width, size.height, Color::black());
 
     // Do the render passes here

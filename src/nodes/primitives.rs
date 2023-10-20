@@ -1,8 +1,6 @@
 use femtovg::{Color, Paint, Path, Renderer};
-use taffy::geometry::Size;
 use taffy::layout::Layout;
-use taffy::style::Dimension;
-use crate::nodes::{Node, NodeChildren, Overflow, RenderContext, Style, TaffyStyle};
+use crate::nodes::{Node, NodeChildren, RenderContext, Style};
 
 #[derive(Clone, Default, Debug)]
 pub struct Rectangle {
@@ -43,7 +41,7 @@ impl<T: Renderer> Node<T> for Rectangle {
                 &Paint::color(self.color)
             );
         } else {
-            context.canvas.clear_rect(
+            context.fill_rect(
                 0,
                 0,
                 layout.size.width as u32,

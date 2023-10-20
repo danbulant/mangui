@@ -3,19 +3,31 @@ pub mod primitives;
 
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
-use femtovg::{Canvas, Renderer};
-use femtovg::renderer::OpenGl;
+use femtovg::{Canvas, Renderer, Color};
 use taffy::layout::Layout;
 pub use taffy::style::Style as TaffyStyle;
 use taffy::Taffy;
-use crate::{GNode, TaffyMap, SharedGNode};
+use crate::TaffyMap;
 
 type SharedTNode<T> = Arc<RwLock<dyn Node<T>>>;
 
 pub struct RenderContext<T: Renderer> {
     pub canvas: Canvas<T>,
-    pub taffy_map: TaffyMap,
+    pub node_layout: TaffyMap<T>,
     pub taffy: Taffy
+}
+
+impl<T: Renderer> RenderContext<T> {
+    /// Fills a rectangle area with the specified color, using the current transform of the canvas.
+    /// Rotation WILL break this, this is mostly for simple scaling and translation.
+    fn fill_rect(&mut self, x: u32, y: u32, width: u32, height: u32, color: Color) {
+        let transform = self.canvas.transform();
+        let x = transform[0] * x as f32 + transform[2] * y as f32 + transform[4];
+        let y = transform[1] * x as f32 + transform[3] * y as f32 + transform[5];
+        let width = transform[0] * width as f32 + transform[2] * height as f32;
+        let height = transform[1] * width as f32 + transform[3] * height as f32;
+        self.canvas.clear_rect(x as u32, y as u32, width as u32, height as u32, color);
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -51,14 +63,14 @@ pub trait Node<T: Renderer>: Debug {
     fn render_post_children(&self, _context: &mut RenderContext<T>, _layout: Layout) {}
 }
 
-pub fn layout_recursively(node: &SharedTNode<OpenGl>, context: &mut RenderContext<OpenGl>) -> taffy::node::Node {
-    let taffy_node = context.taffy_map.get(node);
+pub fn layout_recursively<T: Renderer>(node: &SharedTNode<T>, context: &mut RenderContext<T>) -> taffy::node::Node {
+    let taffy_node = context.node_layout.get(node);
     let taffy_node = match taffy_node {
         Some(taffy_node) => taffy_node,
         None => {
             let taffy_node = context.taffy.new_leaf(node.read().unwrap().style().layout.to_owned()).unwrap();
-            context.taffy_map.insert(node.clone(), taffy_node);
-            context.taffy_map.get(node).unwrap()
+            context.node_layout.insert(node.clone(), taffy_node);
+            context.node_layout.get(node).unwrap()
         }
     };
 
@@ -78,21 +90,23 @@ pub fn layout_recursively(node: &SharedTNode<OpenGl>, context: &mut RenderContex
     taffy_node
 }
 
-pub fn render_recursively(node: &SharedGNode, context: &mut RenderContext<OpenGl>) {
+pub fn render_recursively<T: Renderer>(node: &SharedTNode<T>, context: &mut RenderContext<T>) {
     let read_node = node.read().unwrap();
     let styles = read_node.style();
-    let taffy_node = context.taffy_map.get(node).unwrap();
+    let taffy_node = context.node_layout.get(node).unwrap();
     let layout = *context.taffy.layout(*taffy_node).unwrap();
     let sself = node.clone();
     context.canvas.save();
     context.canvas.translate(layout.location.x, layout.location.y);
     // dbg!(node, layout);
+    // dbg!(styles, layout);
+    // dbg!(context.canvas.transform());
     match styles.overflow {
         Overflow::Visible => {},
         Overflow::Hidden => {
             context.canvas.scissor(
-                layout.location.x,
-                layout.location.y,
+                0.,
+                0.,
                 layout.size.width,
                 layout.size.height,
             );
