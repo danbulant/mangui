@@ -7,14 +7,17 @@ use femtovg::{Canvas, Renderer, Color};
 use taffy::layout::Layout;
 pub use taffy::style::Style as TaffyStyle;
 use taffy::Taffy;
-use crate::TaffyMap;
+use crate::{NodeLayoutMap, LayoutNodeMap, TNodePtr};
 
 type SharedTNode<T> = Arc<RwLock<dyn Node<T>>>;
 
 pub struct RenderContext<T: Renderer> {
     pub canvas: Canvas<T>,
-    pub node_layout: TaffyMap<T>,
-    pub taffy: Taffy
+    pub node_layout: NodeLayoutMap<T>,
+    pub layout_node: LayoutNodeMap<T>,
+    pub taffy: Taffy,
+    pub mouse: TNodePtr<T>,
+    pub keyboard_focus: TNodePtr<T>
 }
 
 impl<T: Renderer> RenderContext<T> {

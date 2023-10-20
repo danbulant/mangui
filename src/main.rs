@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Weak};
@@ -32,7 +33,10 @@ mod nodes;
 
 type TNode<T> = dyn Node<T>;
 type SharedTNode<T> = Arc<RwLock<TNode<T>>>;
-type TaffyMap<T> = PtrWeakKeyHashMap<Weak<RwLock<TNode<T>>>, taffy::node::Node>;
+type WeakTNode<T> = Weak<RwLock<TNode<T>>>;
+type TNodePtr<T> = Option<Vec<WeakTNode<T>>>;
+type NodeLayoutMap<T> = PtrWeakKeyHashMap<Weak<RwLock<TNode<T>>>, taffy::node::Node>;
+type LayoutNodeMap<T> = HashMap<taffy::node::Node, Weak<RwLock<TNode<T>>>>;
 type CurrentRenderer = OpenGl;
 
 fn main() {
@@ -45,7 +49,7 @@ fn main() {
     let canvas = Canvas::new(renderer).expect("Cannot create canvas");
 
     let mut taffy = Taffy::new();
-    let mut taffy_map = TaffyMap::new();
+    let mut taffy_map = NodeLayoutMap::new();
 
     let mut root = Layout::<CurrentRenderer>::new();
     root.style.layout.display = taffy::style::Display::Flex;
@@ -64,6 +68,53 @@ fn main() {
         color: Color::rgb(255, 0, 0),
         radius: 10.
     })));
+    root.children.push(Arc::new(RwLock::new(Layout {
+        style: Style {
+            overflow: nodes::Overflow::Visible,
+            layout: TaffyStyle {
+                min_size: Size {
+                    width: Dimension::Points(100.),
+                    height: Dimension::Points(100.)
+                },
+                flex_grow: 1.,
+                display: taffy::style::Display::Flex,
+                flex_direction: taffy::style::FlexDirection::Column,
+                ..Default::default()
+            }
+        },
+        children: vec![
+            Arc::new(RwLock::new(nodes::primitives::Rectangle {
+                style: Style {
+                    overflow: nodes::Overflow::Visible,
+                    layout: TaffyStyle {
+                        min_size: Size {
+                            width: Dimension::Points(50.),
+                            height: Dimension::Points(50.)
+                        },
+                        flex_grow: 1.,
+                        ..Default::default()
+                    }
+                },
+                color: Color::rgb(0, 255, 0),
+                radius: 5.
+            })),
+            Arc::new(RwLock::new(nodes::primitives::Rectangle {
+                style: Style {
+                    overflow: nodes::Overflow::Visible,
+                    layout: TaffyStyle {
+                        min_size: Size {
+                            width: Dimension::Points(50.),
+                            height: Dimension::Points(50.)
+                        },
+                        ..Default::default()
+                    }
+                },
+                color: Color::rgb(0, 255, 255),
+                radius: 5.
+            }))
+        ]
+
+    })));
     root.children.push(Arc::new(RwLock::new(nodes::primitives::Rectangle {
         style: Style {
             overflow: nodes::Overflow::Visible,
@@ -75,7 +126,7 @@ fn main() {
                 ..Default::default()
             }
         },
-        color: Color::rgb(0, 255, 0),
+        color: Color::rgb(0, 0, 255),
         radius: 0.
     })));
     let groot: Arc<RwLock<Layout<CurrentRenderer>>> = Arc::new(RwLock::new(root));
@@ -92,7 +143,10 @@ fn main() {
     let mut context = RenderContext {
         canvas,
         node_layout: taffy_map,
-        taffy
+        layout_node: LayoutNodeMap::new(),
+        taffy,
+        mouse: None,
+        keyboard_focus: None
     };
 
     // let mut width: u32 = 0;
@@ -135,12 +189,20 @@ fn main() {
                     }
                 }
                 for (node, taffy_node) in context.node_layout.iter() {
+                    // context.layout_node.insert(*taffy_node, Arc::downgrade(&node));
                     let node = node.read().unwrap();
                     let node_style = node.style();
                     context.taffy.set_style(*taffy_node, node_style.layout.to_owned()).unwrap();
                 }
+                // context.layout_node.retain(|_, v| v.upgrade().is_some());
                 context.taffy.compute_layout(*context.node_layout.get(&root).unwrap(), Size::MAX_CONTENT).unwrap();
                 should_recompute = false;
+                // Additional optimizations could be done here
+                // - When setting styles, check that the styles aren't the same (taffy doesn't do that and instead always mark it as dirty)
+                // - taffy seems to always recompute (maybe internally checks dirtyness, I didn't look into it that much)
+                // - the weakmap dance (src_nodes, dst_nodes) could be avoided by changing the weakmap used
+                //   (weakmap removes keys when you attempt to read them, we could change it so that we could iterate on them and remove them in one go)
+                // could perhaps be a significant boost regarding memory usage (and performance) during large layout changes
                 // dbg!("recomputed");
             }
             // dbg!(&root);

@@ -11,7 +11,7 @@ pub struct Layout<T> {
 }
 
 impl<T: Renderer> Layout<T> {
-    pub(crate) fn new() -> Layout<T> {
+    pub fn new() -> Layout<T> {
         Layout {
             style: Style {
                 layout: TaffyStyle::default(),
