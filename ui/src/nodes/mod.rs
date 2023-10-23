@@ -7,14 +7,13 @@ use femtovg::{Canvas, Renderer, Color};
 use taffy::layout::Layout;
 pub use taffy::style::Style as TaffyStyle;
 use taffy::Taffy;
-use crate::{NodeLayoutMap, LayoutNodeMap, TNodePtr};
+use crate::{NodeLayoutMap, TNodePtr};
 
 type SharedTNode<T> = Arc<RwLock<dyn Node<T>>>;
 
 pub struct RenderContext<T: Renderer> {
     pub canvas: Canvas<T>,
     pub node_layout: NodeLayoutMap<T>,
-    pub layout_node: LayoutNodeMap<T>,
     pub taffy: Taffy,
     pub mouse: TNodePtr<T>,
     pub keyboard_focus: TNodePtr<T>
@@ -105,9 +104,6 @@ pub fn render_recursively<T: Renderer>(node: &SharedTNode<T>, context: &mut Rend
     let sself = node.clone();
     context.canvas.save();
     context.canvas.translate(layout.location.x, layout.location.y);
-    // dbg!(node, layout);
-    // dbg!(styles, layout);
-    // dbg!(context.canvas.transform());
     match styles.overflow {
         Overflow::Visible => {},
         Overflow::Hidden => {
@@ -120,13 +116,6 @@ pub fn render_recursively<T: Renderer>(node: &SharedTNode<T>, context: &mut Rend
         }
     }
     drop(read_node);
-    // sself.render(context, layout, & (|context| {
-    //     if let Some(children) = sself.children() {
-    //         for child in children {
-    //             render_recursively(child, context);
-    //         }
-    //     }
-    // }));
     sself.read().unwrap().render_pre_children(context, layout);
     if let Some(children) = sself.read().unwrap().children() {
         for child in children {

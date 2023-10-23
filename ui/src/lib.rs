@@ -37,7 +37,6 @@ pub type SharedTNode<T> = Arc<RwLock<TNode<T>>>;
 type WeakTNode<T> = Weak<RwLock<TNode<T>>>;
 type TNodePtr<T> = Option<Vec<WeakTNode<T>>>;
 type NodeLayoutMap<T> = PtrWeakKeyHashMap<Weak<RwLock<TNode<T>>>, taffy::node::Node>;
-type LayoutNodeMap<T> = HashMap<taffy::node::Node, Weak<RwLock<TNode<T>>>>;
 
 pub fn run_event_loop(root_node: SharedTNode<CurrentRenderer>) -> ! {
     let event_loop = EventLoop::new();
@@ -53,8 +52,7 @@ pub fn run_event_loop(root_node: SharedTNode<CurrentRenderer>) -> ! {
     {
         let clonned = root_node.clone();
         let root = clonned.read().unwrap();
-        // let root: RwLockReadGuard<'_, dyn Node<CurrentRenderer>> = root;
-        let root_style = root.deref().style(); // TNode::<CurrentRenderer>::style(root.deref());
+        let root_style = root.deref().style();
         let root_layout = root_style.layout.to_owned();
         let taffy_root_node = taffy.new_leaf(root_layout).unwrap();
 
@@ -64,15 +62,12 @@ pub fn run_event_loop(root_node: SharedTNode<CurrentRenderer>) -> ! {
     let mut context = RenderContext {
         canvas,
         node_layout: taffy_map,
-        layout_node: LayoutNodeMap::new(),
         taffy,
         mouse: None,
         keyboard_focus: None
     };
     let root = root_node.clone();
 
-    // let mut width: u32 = 0;
-    // let mut height: u32 = 0;
     let mut should_recompute = true;
 
     event_loop.run(move |event, _target, control_flow| match event {
@@ -82,15 +77,11 @@ pub fn run_event_loop(root_node: SharedTNode<CurrentRenderer>) -> ! {
             // }
             WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
             WindowEvent::Resized(size) => {
-                // width = size.width;
-                // height = size.height;
                 let width: NonZeroU32 = NonZeroU32::new(size.width).unwrap();
                 let height: NonZeroU32 = NonZeroU32::new(size.height).unwrap();
                 surface.resize(&buffer_context, width, height);
                 let mut groot = root_node.write().unwrap();
                 // let scale_factor = window.scale_factor();
-                // groot.style.layout.size.width = Dimension::Points(size.width as f32);
-                // groot.style.layout.size.height = Dimension::Points(size.height as f32);
                 groot.resize(size.width as f32, size.height as f32);
                 drop(groot);
                 window.request_redraw();
@@ -111,12 +102,10 @@ pub fn run_event_loop(root_node: SharedTNode<CurrentRenderer>) -> ! {
                     }
                 }
                 for (node, taffy_node) in context.node_layout.iter() {
-                    // context.layout_node.insert(*taffy_node, Arc::downgrade(&node));
                     let node = node.read().unwrap();
                     let node_style = node.style();
                     context.taffy.set_style(*taffy_node, node_style.layout.to_owned()).unwrap();
                 }
-                // context.layout_node.retain(|_, v| v.upgrade().is_some());
                 context.taffy.compute_layout(*context.node_layout.get(&root).unwrap(), Size::MAX_CONTENT).unwrap();
                 should_recompute = false;
                 // Additional optimizations could be done here
@@ -179,18 +168,13 @@ fn render(
     context: &mut RenderContext<CurrentRenderer>,
     root_node: &SharedTNode<CurrentRenderer>
 ) {
-    // Make sure the canvas has the right size:
     let size = window.inner_size();
     context.canvas.reset();
     context.canvas.set_size(size.width, size.height, window.scale_factor() as f32);
-    // context.canvas.scale(1., -1.); // layout is bottom to top, canvas is top to bottom, this might make it easier?
     context.canvas.clear_rect(0, 0, size.width, size.height, Color::black());
 
-    // Do the render passes here
     render_recursively(root_node, context);
 
-    // Tell renderer to execute all drawing commands
     context.canvas.flush();
-    // Display what we've just rendered
     surface.swap_buffers(buffer_context).expect("Could not swap buffers");
 }

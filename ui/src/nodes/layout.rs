@@ -38,9 +38,6 @@ impl<T: Renderer> Node<T> for Layout<T> {
     fn children(&self) -> Option<&NodeChildren<T>> {
         Some(&self.children)
     }
-    // fn render_(&self, context: &mut RenderContext<T>, _layout: taffy::layout::Layout, render_children: &dyn Fn(&mut RenderContext<T>)) {
-    //     render_children(context);
-    // }
     fn resize(&mut self, width: f32, height: f32) {
         self.style.layout.size.width = Dimension::Points(width);
         self.style.layout.size.height = Dimension::Points(height);
