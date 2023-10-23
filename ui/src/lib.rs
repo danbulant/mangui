@@ -1,14 +1,17 @@
+use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Weak};
 
+use events::{Location, MouseValue, NodeEvent, MouseEvent};
 use femtovg::renderer::OpenGl;
 use femtovg::{Canvas, Color};
 use glutin::surface::Surface;
 use glutin::{context::PossiblyCurrentContext, display::Display};
 use glutin_winit::DisplayBuilder;
+use nodes::get_element_at;
 use raw_window_handle::HasRawWindowHandle;
-use winit::event::{Event, WindowEvent};
+use winit::event::{Event, WindowEvent, ModifiersState, DeviceId};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use winit::{dpi::PhysicalSize, window::Window};
@@ -27,6 +30,7 @@ use weak_table::PtrWeakKeyHashMap;
 use crate::nodes::{layout_recursively, Node, render_recursively, RenderContext};
 
 pub mod nodes;
+pub mod events;
 pub use taffy;
 pub use femtovg;
 
@@ -68,11 +72,101 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
 
     let mut should_recompute = true;
 
+    let mut modifiers = ModifiersState::default();
+    let focus_path: Option<Vec<WeakNode>> = None;
+    let mut mouse_values: HashMap<DeviceId, MouseValue> = HashMap::new();
+
     event_loop.run(move |event, _target, control_flow| match event {
         Event::WindowEvent { event, .. } => match event {
-            // WindowEvent::CursorMoved { position, .. } => {
-            //     window.request_redraw();
-            // }
+            WindowEvent::MouseWheel { device_id, delta, phase, .. } => {},
+            WindowEvent::CursorMoved { device_id, position, .. } => {
+                let mouse_value = mouse_values.get(&device_id);
+                let (movement, location, buttons) = match mouse_value {
+                    Some(mouse_value) => {
+                        let location = (position.x, position.y).into();
+                        let movement = location - mouse_value.last_location;
+                        mouse_values.insert(device_id, MouseValue {
+                            last_location: location,
+                            buttons: mouse_value.buttons
+                        });
+                        (movement, location, mouse_value.buttons)
+                    },
+                    None => {
+                        let location = (position.x, position.y).into();
+                        let movement = Location::new(0., 0.);
+                        let value = MouseValue {
+                            last_location: location,
+                            buttons: 0
+                        };
+                        mouse_values.insert(device_id, value);
+                        (movement, location, Default::default())
+                    }
+                };
+
+                let path = get_element_at(&root, &context, location);
+
+                if let Some(path) = path {
+                    let target_layout = context.node_layout.get(path.last().unwrap());
+                    let target_layout = match target_layout {
+                        Some(target_layout) => target_layout,
+                        None => { return; }
+                    };
+                    let target_layout = taffy.layout(target_layout.to_owned()).unwrap();
+                    let event = NodeEvent {
+                        target: path.last().unwrap().clone(),
+                        path: path.clone(),
+                        event: events::InnerEvent::MouseMove(MouseEvent {
+                            button: None,
+                            buttons,
+                            client: location,
+                            movement,
+                            device: device_id,
+                            modifiers,
+                            offset: location - target_layout.location.into()
+                        })
+                    };
+                }
+            },
+            WindowEvent::DroppedFile(path) => {},
+            WindowEvent::HoveredFile(path) => {},
+            WindowEvent::HoveredFileCancelled => {},
+            WindowEvent::Focused(focused) => {
+                match &focus_path {
+                    Some(path) => {
+                        let strong_focus_path: Option<Vec<SharedNode>> = convert_vec_option_to_option_vec(path.iter().map(|weak| weak.upgrade()).collect());
+                        if matches!(strong_focus_path, None) { return; }
+                        let strong_focus_path = strong_focus_path.unwrap();
+                        if strong_focus_path.len() == 0 { return; }
+
+                        let focus_event = NodeEvent {
+                            target: strong_focus_path.last().unwrap().clone(),
+                            path: strong_focus_path.clone(),
+                            event: if focused { events::InnerEvent::Focus } else { events::InnerEvent::Blur }
+                        };
+                        strong_focus_path.last().unwrap().write().unwrap().on_event(&focus_event.event);
+
+                        let focus_event = NodeEvent {
+                            target: strong_focus_path.last().unwrap().clone(),
+                            path: strong_focus_path.clone(),
+                            event: if focused { events::InnerEvent::FocusIn } else { events::InnerEvent::FocusOut }
+                        };
+
+                        for node in strong_focus_path.iter().rev() {
+                            node.write().unwrap().on_event(&focus_event.event);
+                        }
+                    },
+                    None => {}
+                };
+            },
+            WindowEvent::ModifiersChanged(new_modifiers) => { modifiers = new_modifiers; },
+            WindowEvent::KeyboardInput { device_id, input, is_synthetic } => {},
+            WindowEvent::MouseInput { device_id, state, button, .. } => {
+                let mouse_value = mouse_values.get(&device_id);
+                let mouse_value = match mouse_value {
+                    Some(mouse_value) => mouse_value,
+                    None => { return; } // Mouse move should be fired first
+                };
+            },
             WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
             WindowEvent::Resized(size) => {
                 let width: NonZeroU32 = NonZeroU32::new(size.width).unwrap();
@@ -120,6 +214,12 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
         // In the future, window should be created after resuming from suspend (for android support)
         _ => {}
     })
+}
+
+/// I have no idea if there's a better way to do this in rust...
+/// Found via ChatGPT (the only piece of code by chatgpt itself in this whole project as of now)
+fn convert_vec_option_to_option_vec<T>(vec: Vec<Option<T>>) -> Option<Vec<T>> {
+    vec.into_iter().collect::<Option<Vec<T>>>()
 }
 
 fn create_window(event_loop: &EventLoop<()>) -> (PossiblyCurrentContext, Display, Window, Surface<WindowSurface>) {

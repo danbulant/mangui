@@ -7,6 +7,7 @@ use femtovg::{Canvas, Color};
 use taffy::layout::Layout;
 pub use taffy::style::Style as TaffyStyle;
 use taffy::Taffy;
+use crate::events::Location;
 use crate::{NodeLayoutMap, NodePtr, CurrentRenderer};
 
 type SharedTNode = Arc<RwLock<dyn Node>>;
@@ -67,6 +68,40 @@ pub trait Node: Debug {
     /// Is an optional function instead of another trait because of missing support for trait upcasting
     // TODO: When rust supports trait upcasting, make this a trait
     fn resize(&mut self, _width: f32, _height: f32) {}
+
+    /// Called when an event happens on the node. This is called after the children have been called.
+    /// Beware! Events include a path and target with [Arc<RwLock<Node>>]s, but you already have a write lock for this node!
+    /// Remember to check if the node is the same as self, and if it is, use self instead of the node in the path to prevent deadlocks!
+    fn on_event(&mut self, _event: &crate::events::InnerEvent) {}
+}
+
+pub fn get_element_at(node: &SharedTNode, context: &RenderContext, location: Location) -> Option<Vec<SharedTNode>> {
+    let children = node.read().unwrap().children();
+    let taffy_node = context.node_layout.get(node);
+    let taffy_node = match taffy_node {
+        Some(taffy_node) => taffy_node,
+        None => { return None }
+    };
+    let layout = *context.taffy.layout(*taffy_node).unwrap();
+
+    if layout.location.x <= location.x && layout.location.y <= location.y && layout.location.x + layout.size.width >= location.x && layout.location.y + layout.size.height >= location.y {
+        match children {
+            None => {
+                Some(vec![node.clone()])
+            },
+            Some(children) => {
+                let mut result = vec![node.clone()];
+                for child in children {
+                    if let Some(mut path) = get_element_at(child, context, location) {
+                        result.append(&mut path);
+                    }
+                }
+                Some(result)
+            }
+        }
+    } else {
+        None
+    }
 }
 
 pub fn layout_recursively(node: &SharedTNode, context: &mut RenderContext) -> taffy::node::Node {

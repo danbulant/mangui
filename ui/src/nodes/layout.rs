@@ -1,23 +1,19 @@
 use std::fmt::{Debug, Formatter};
-use femtovg::Renderer;
-use crate::nodes::{Node, NodeChildren, Overflow, Style};
-use taffy::style::{Style as TaffyStyle, Dimension};
+use crate::nodes::{Node, NodeChildren, Style};
+use taffy::style::Dimension;
 
+/// A simple layout node which contains children.
 #[derive(Clone, Default)]
-
 pub struct Layout {
     pub style: Style,
     pub children: NodeChildren
 }
 
 impl Layout {
-    pub fn new() -> Layout {
+    pub fn new(children: NodeChildren) -> Layout {
         Layout {
-            style: Style {
-                layout: TaffyStyle::default(),
-                overflow: Overflow::Visible
-            },
-            children: NodeChildren::new()
+            style: Style::default(),
+            children
         }
     }
 }
