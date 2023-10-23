@@ -19,14 +19,14 @@ impl Rectangle {
     }
 }
 
-impl<T: Renderer> Node<T> for Rectangle {
+impl Node for Rectangle {
     fn style(&self) -> &Style {
         &self.style
     }
-    fn children(&self) -> Option<&NodeChildren<T>> {
+    fn children(&self) -> Option<&NodeChildren> {
         None
     }
-    fn render_pre_children(&self, context: &mut RenderContext<T>, layout: Layout) {
+    fn render_pre_children(&self, context: &mut RenderContext, layout: Layout) {
         let mut path = Path::new();
         path.rounded_rect(
             0.,

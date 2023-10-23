@@ -1,17 +1,17 @@
 use std::fmt::{Debug, Formatter};
 use femtovg::Renderer;
-use crate::nodes::{Node, NodeChildren, Overflow, RenderContext, Style};
+use crate::nodes::{Node, NodeChildren, Overflow, Style};
 use taffy::style::{Style as TaffyStyle, Dimension};
 
 #[derive(Clone, Default)]
 
-pub struct Layout<T> {
+pub struct Layout {
     pub style: Style,
-    pub children: NodeChildren<T>
+    pub children: NodeChildren
 }
 
-impl<T: Renderer> Layout<T> {
-    pub fn new() -> Layout<T> {
+impl Layout {
+    pub fn new() -> Layout {
         Layout {
             style: Style {
                 layout: TaffyStyle::default(),
@@ -22,7 +22,7 @@ impl<T: Renderer> Layout<T> {
     }
 }
 
-impl<T: Renderer> Debug for Layout<T> {
+impl Debug for Layout {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Layout")
             .field("style", &self.style)
@@ -31,11 +31,11 @@ impl<T: Renderer> Debug for Layout<T> {
     }
 }
 
-impl<T: Renderer> Node<T> for Layout<T> {
+impl Node for Layout {
     fn style(&self) -> &Style {
         &self.style
     }
-    fn children(&self) -> Option<&NodeChildren<T>> {
+    fn children(&self) -> Option<&NodeChildren> {
         Some(&self.children)
     }
     fn resize(&mut self, width: f32, height: f32) {

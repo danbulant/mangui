@@ -1,6 +1,6 @@
 use std::sync::{RwLock, Arc};
 
-use mangui::{self, nodes::{layout::Layout, self, Style, TaffyStyle}, taffy::{self, prelude::Size, style::Dimension}, femtovg::{Paint, Color}, CurrentRenderer, SharedTNode};
+use mangui::{self, nodes::{layout::Layout, self, Style, TaffyStyle}, taffy::{self, prelude::Size, style::Dimension}, femtovg::{Paint, Color}, CurrentRenderer, SharedNode};
 
 fn main() {
     let mut root = Layout::<CurrentRenderer>::new();
@@ -81,7 +81,7 @@ fn main() {
         fill: Paint::color(Color::rgb(0, 0, 255)),
         radius: 0.
     })));
-    let groot: SharedTNode<CurrentRenderer> = Arc::new(RwLock::new(root));
+    let groot: SharedNode<CurrentRenderer> = Arc::new(RwLock::new(root));
 
     mangui::run_event_loop(groot);
 }

@@ -3,26 +3,26 @@ pub mod primitives;
 
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
-use femtovg::{Canvas, Renderer, Color};
+use femtovg::{Canvas, Color};
 use taffy::layout::Layout;
 pub use taffy::style::Style as TaffyStyle;
 use taffy::Taffy;
-use crate::{NodeLayoutMap, TNodePtr};
+use crate::{NodeLayoutMap, NodePtr, CurrentRenderer};
 
-type SharedTNode<T> = Arc<RwLock<dyn Node<T>>>;
+type SharedTNode = Arc<RwLock<dyn Node>>;
 
-pub struct RenderContext<T: Renderer> {
-    pub canvas: Canvas<T>,
-    pub node_layout: NodeLayoutMap<T>,
+pub struct RenderContext {
+    pub canvas: Canvas<CurrentRenderer>,
+    pub node_layout: NodeLayoutMap,
     pub taffy: Taffy,
-    pub mouse: TNodePtr<T>,
-    pub keyboard_focus: TNodePtr<T>
+    pub mouse: NodePtr,
+    pub keyboard_focus: NodePtr
 }
 
-impl<T: Renderer> RenderContext<T> {
+impl RenderContext {
     /// Fills a rectangle area with the specified color, using the current transform of the canvas.
     /// Rotation WILL break this, this is mostly for simple scaling and translation.
-    fn fill_rect(&mut self, x: u32, y: u32, width: u32, height: u32, color: Color) {
+    pub fn fill_rect(&mut self, x: u32, y: u32, width: u32, height: u32, color: Color) {
         let transform = self.canvas.transform();
         let x = transform[0] * x as f32 + transform[2] * y as f32 + transform[4];
         let y = transform[1] * x as f32 + transform[3] * y as f32 + transform[5];
@@ -50,26 +50,26 @@ pub struct Style {
     pub overflow: Overflow
 }
 
-type NodeChildren<T> = Vec<SharedTNode<T>>;
+type NodeChildren = Vec<SharedTNode>;
 
-pub trait Node<T: Renderer>: Debug {
+pub trait Node: Debug {
     /// Return style. Usually, you just want self.style.
     fn style(&self) -> &Style;
     /// Returns the children of the node. If the node has no children, return None (empty Vec also works, None is mainly for nodes without children support).
-    fn children(&self) -> Option<&NodeChildren<T>>;
+    fn children(&self) -> Option<&NodeChildren>;
     /// Render the node, called before rendering it's children
     /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
-    fn render_pre_children(&self, _context: &mut RenderContext<T>, _layout: Layout) {}
+    fn render_pre_children(&self, _context: &mut RenderContext, _layout: Layout) {}
     /// Render the node, called after rendering it's children
     /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
-    fn render_post_children(&self, _context: &mut RenderContext<T>, _layout: Layout) {}
+    fn render_post_children(&self, _context: &mut RenderContext, _layout: Layout) {}
     /// Called when the size of window changes on the root node. Layouts do implement this.
     /// Is an optional function instead of another trait because of missing support for trait upcasting
     // TODO: When rust supports trait upcasting, make this a trait
-    fn resize(&mut self, width: f32, height: f32) {}
+    fn resize(&mut self, _width: f32, _height: f32) {}
 }
 
-pub fn layout_recursively<T: Renderer>(node: &SharedTNode<T>, context: &mut RenderContext<T>) -> taffy::node::Node {
+pub fn layout_recursively(node: &SharedTNode, context: &mut RenderContext) -> taffy::node::Node {
     let taffy_node = context.node_layout.get(node);
     let taffy_node = match taffy_node {
         Some(taffy_node) => taffy_node,
@@ -96,7 +96,7 @@ pub fn layout_recursively<T: Renderer>(node: &SharedTNode<T>, context: &mut Rend
     taffy_node
 }
 
-pub fn render_recursively<T: Renderer>(node: &SharedTNode<T>, context: &mut RenderContext<T>) {
+pub fn render_recursively(node: &SharedTNode, context: &mut RenderContext) {
     let read_node = node.read().unwrap();
     let styles = read_node.style();
     let taffy_node = context.node_layout.get(node).unwrap();

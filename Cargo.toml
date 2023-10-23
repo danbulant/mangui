@@ -1,6 +1,6 @@
 [workspace]
 package.authors = ["Daniel Bulant"]
-
+resolver = "2"
 members = [
     "ui",
     "mangades"

@@ -1,7 +1,6 @@
-use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ops::Deref;
-use std::sync::{Arc, RwLock, Weak, RwLockReadGuard};
+use std::sync::{Arc, RwLock, Weak};
 
 use femtovg::renderer::OpenGl;
 use femtovg::{Canvas, Color};
@@ -32,13 +31,12 @@ pub use taffy;
 pub use femtovg;
 
 pub type CurrentRenderer = OpenGl;
-pub type TNode<T> = dyn Node<T>;
-pub type SharedTNode<T> = Arc<RwLock<TNode<T>>>;
-type WeakTNode<T> = Weak<RwLock<TNode<T>>>;
-type TNodePtr<T> = Option<Vec<WeakTNode<T>>>;
-type NodeLayoutMap<T> = PtrWeakKeyHashMap<Weak<RwLock<TNode<T>>>, taffy::node::Node>;
+pub type SharedNode = Arc<RwLock<dyn Node>>;
+type WeakNode = Weak<RwLock<dyn Node>>;
+type NodePtr = Option<Vec<WeakNode>>;
+type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::node::Node>;
 
-pub fn run_event_loop(root_node: SharedTNode<CurrentRenderer>) -> ! {
+pub fn run_event_loop(root_node: SharedNode) -> ! {
     let event_loop = EventLoop::new();
     let (buffer_context, gl_display, window, surface) = create_window(&event_loop);
 
@@ -119,6 +117,7 @@ pub fn run_event_loop(root_node: SharedTNode<CurrentRenderer>) -> ! {
             // dbg!(&root);
             render(&buffer_context, &surface, &window, &mut context, &root);
         },
+        // In the future, window should be created after resuming from suspend (for android support)
         _ => {}
     })
 }
@@ -165,8 +164,8 @@ fn render(
     buffer_context: &PossiblyCurrentContext,
     surface: &Surface<WindowSurface>,
     window: &Window,
-    context: &mut RenderContext<CurrentRenderer>,
-    root_node: &SharedTNode<CurrentRenderer>
+    context: &mut RenderContext,
+    root_node: &SharedNode
 ) {
     let size = window.inner_size();
     context.canvas.reset();
