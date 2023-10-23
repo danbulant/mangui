@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use femtovg::Renderer;
 use crate::nodes::{Node, NodeChildren, Overflow, RenderContext, Style};
-use taffy::style::{Style as TaffyStyle};
+use taffy::style::{Style as TaffyStyle, Dimension};
 
 #[derive(Clone, Default)]
 
@@ -41,5 +41,8 @@ impl<T: Renderer> Node<T> for Layout<T> {
     // fn render_(&self, context: &mut RenderContext<T>, _layout: taffy::layout::Layout, render_children: &dyn Fn(&mut RenderContext<T>)) {
     //     render_children(context);
     // }
-
+    fn resize(&mut self, width: f32, height: f32) {
+        self.style.layout.size.width = Dimension::Points(width);
+        self.style.layout.size.height = Dimension::Points(height);
+    }
 }

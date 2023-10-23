@@ -47,7 +47,7 @@ pub enum Overflow {
 }
 #[derive(Clone, Default, Debug)]
 pub struct Style {
-    pub(crate) layout: TaffyStyle,
+    pub layout: TaffyStyle,
     pub overflow: Overflow
 }
 
@@ -64,6 +64,10 @@ pub trait Node<T: Renderer>: Debug {
     /// Render the node, called after rendering it's children
     /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
     fn render_post_children(&self, _context: &mut RenderContext<T>, _layout: Layout) {}
+    /// Called when the size of window changes on the root node. Layouts do implement this.
+    /// Is an optional function instead of another trait because of missing support for trait upcasting
+    // TODO: When rust supports trait upcasting, make this a trait
+    fn resize(&mut self, width: f32, height: f32) {}
 }
 
 pub fn layout_recursively<T: Renderer>(node: &SharedTNode<T>, context: &mut RenderContext<T>) -> taffy::node::Node {

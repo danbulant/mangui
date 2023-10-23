@@ -10,7 +10,7 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
-    pub(crate) fn new() -> Rectangle {
+    pub fn new() -> Rectangle {
         Rectangle {
             style: Style::default(),
             fill: Paint::color(Color::rgb(0, 0, 0)),
