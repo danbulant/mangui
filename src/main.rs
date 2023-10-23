@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock, Weak};
 
 use femtovg::renderer::OpenGl;
-use femtovg::{Canvas, Color};
+use femtovg::{Canvas, Color, Paint};
 use glutin::surface::Surface;
 use glutin::{context::PossiblyCurrentContext, display::Display};
 use glutin_winit::DisplayBuilder;
@@ -65,7 +65,7 @@ fn main() {
                 ..Default::default()
             }
         },
-        color: Color::rgb(255, 0, 0),
+        fill: Paint::color(Color::rgb(255, 0, 0)),
         radius: 10.
     })));
     root.children.push(Arc::new(RwLock::new(Layout {
@@ -95,7 +95,7 @@ fn main() {
                         ..Default::default()
                     }
                 },
-                color: Color::rgb(0, 255, 0),
+                fill: Paint::color(Color::rgb(0, 255, 0)),
                 radius: 5.
             })),
             Arc::new(RwLock::new(nodes::primitives::Rectangle {
@@ -109,7 +109,7 @@ fn main() {
                         ..Default::default()
                     }
                 },
-                color: Color::rgb(0, 255, 255),
+                fill: Paint::color(Color::rgb(0, 255, 255)),
                 radius: 5.
             }))
         ]
@@ -126,7 +126,7 @@ fn main() {
                 ..Default::default()
             }
         },
-        color: Color::rgb(0, 0, 255),
+        fill: Paint::color(Color::rgb(0, 0, 255)),
         radius: 0.
     })));
     let groot: Arc<RwLock<Layout<CurrentRenderer>>> = Arc::new(RwLock::new(root));
