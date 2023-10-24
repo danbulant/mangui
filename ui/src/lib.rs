@@ -177,6 +177,12 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
 
                 match path {
                     Some(path) => {
+                        let target_layout = context.node_layout.get(path.last().unwrap());
+                        let target_layout = match target_layout {
+                            Some(target_layout) => target_layout,
+                            None => { return; }
+                        };
+                        let target_layout = context.taffy.layout(target_layout.to_owned()).unwrap();
                         let mevent = MouseEvent {
                             button: Some(button),
                             buttons: mouse_value.buttons,
@@ -184,7 +190,7 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                             movement: Location::new(0., 0.),
                             device: device_id,
                             modifiers,
-                            offset: Location::new(0., 0.)
+                            offset: location - target_layout.location.into()
                         };
                         let event = NodeEvent {
                             target: path.last().unwrap().clone(),
