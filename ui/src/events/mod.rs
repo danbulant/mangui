@@ -6,6 +6,7 @@ pub use winit::event::{TouchPhase, MouseScrollDelta, DeviceId, ModifiersState, V
 
 use crate::SharedNode;
 
+#[derive(Clone, Debug)]
 pub struct NodeEvent {
     /// Target node of event.
     pub target: SharedNode,
@@ -16,6 +17,7 @@ pub struct NodeEvent {
 }
 
 /// Different event types that can be sent to a node.
+#[derive(Clone, Debug, PartialEq)]
 pub enum InnerEvent {
     Wheel {
         phase: TouchPhase,
@@ -56,6 +58,7 @@ pub enum InnerEvent {
     KeyUp(KeyboardEvent),
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct KeyboardEvent {
     /// Logical location ("it's effect") of the key
     pub key: Option<VirtualKeyCode>,
@@ -77,6 +80,7 @@ pub struct KeyboardEvent {
     pub device: DeviceId
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct MouseEvent {
     /// The button which fired the event (if any)
     pub button: Option<MouseButton>,
@@ -214,14 +218,14 @@ impl MouseEvent {
     }
 }
 
-#[derive(Default)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub(crate) struct MouseValue {
     pub last_location: Location,
     pub buttons: u8
 }
 
 impl MouseValue {
-    fn update_buttons(&mut self, button: MouseButton, state: ElementState) {
+    pub(crate) fn update_buttons(&mut self, button: MouseButton, state: ElementState) {
         let buttons = MouseEvent::button_to_buttons(button);
         match state {
             ElementState::Pressed => self.buttons |= buttons,

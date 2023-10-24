@@ -40,4 +40,6 @@ impl Node for Rectangle {
             &self.fill
         );
     }
+
+    fn on_event(&mut self, event: &crate::events::NodeEvent) {}
 }

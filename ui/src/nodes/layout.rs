@@ -38,4 +38,6 @@ impl Node for Layout {
         self.style.layout.size.width = Dimension::Points(width);
         self.style.layout.size.height = Dimension::Points(height);
     }
+
+    fn on_event(&mut self, event: &crate::events::NodeEvent) {}
 }

@@ -81,15 +81,14 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
             WindowEvent::MouseWheel { device_id, delta, phase, .. } => {},
             WindowEvent::CursorMoved { device_id, position, .. } => {
                 let mouse_value = mouse_values.get(&device_id);
-                let (movement, location, buttons) = match mouse_value {
+                let (movement, location, mouse_value) = match mouse_value {
                     Some(mouse_value) => {
                         let location = (position.x, position.y).into();
                         let movement = location - mouse_value.last_location;
-                        mouse_values.insert(device_id, MouseValue {
+                        (movement, location, MouseValue {
                             last_location: location,
                             buttons: mouse_value.buttons
-                        });
-                        (movement, location, mouse_value.buttons)
+                        })
                     },
                     None => {
                         let location = (position.x, position.y).into();
@@ -98,10 +97,11 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                             last_location: location,
                             buttons: 0
                         };
-                        mouse_values.insert(device_id, value);
-                        (movement, location, Default::default())
+                        (movement, location, value)
                     }
                 };
+                let buttons = mouse_value.buttons;
+                mouse_values.insert(device_id, mouse_value);
 
                 let path = get_element_at(&root, &context, location);
 
@@ -111,7 +111,7 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                         Some(target_layout) => target_layout,
                         None => { return; }
                     };
-                    let target_layout = taffy.layout(target_layout.to_owned()).unwrap();
+                    let target_layout = context.taffy.layout(target_layout.to_owned()).unwrap();
                     let event = NodeEvent {
                         target: path.last().unwrap().clone(),
                         path: path.clone(),
@@ -125,6 +125,10 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                             offset: location - target_layout.location.into()
                         })
                     };
+
+                    for node in path.iter().rev() {
+                        node.write().unwrap().on_event(&event);
+                    }
                 }
             },
             WindowEvent::DroppedFile(path) => {},
@@ -143,7 +147,7 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                             path: strong_focus_path.clone(),
                             event: if focused { events::InnerEvent::Focus } else { events::InnerEvent::Blur }
                         };
-                        strong_focus_path.last().unwrap().write().unwrap().on_event(&focus_event.event);
+                        strong_focus_path.last().unwrap().write().unwrap().on_event(&focus_event);
 
                         let focus_event = NodeEvent {
                             target: strong_focus_path.last().unwrap().clone(),
@@ -152,7 +156,7 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                         };
 
                         for node in strong_focus_path.iter().rev() {
-                            node.write().unwrap().on_event(&focus_event.event);
+                            node.write().unwrap().on_event(&focus_event);
                         }
                     },
                     None => {}
@@ -162,10 +166,41 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
             WindowEvent::KeyboardInput { device_id, input, is_synthetic } => {},
             WindowEvent::MouseInput { device_id, state, button, .. } => {
                 let mouse_value = mouse_values.get(&device_id);
-                let mouse_value = match mouse_value {
-                    Some(mouse_value) => mouse_value,
+                let mut mouse_value = match mouse_value {
+                    Some(mouse_value) => mouse_value.clone(),
                     None => { return; } // Mouse move should be fired first
                 };
+                mouse_value.update_buttons(button, state);
+
+                let location = mouse_value.last_location;
+                let path = get_element_at(&root, &context, location);
+
+                match path {
+                    Some(path) => {
+                        let mevent = MouseEvent {
+                            button: Some(button),
+                            buttons: mouse_value.buttons,
+                            client: location,
+                            movement: Location::new(0., 0.),
+                            device: device_id,
+                            modifiers,
+                            offset: Location::new(0., 0.)
+                        };
+                        let event = NodeEvent {
+                            target: path.last().unwrap().clone(),
+                            path: path.clone(),
+                            event: match state {
+                                winit::event::ElementState::Pressed => events::InnerEvent::MouseDown(mevent),
+                                winit::event::ElementState::Released => events::InnerEvent::MouseUp(mevent)
+                            }
+                        };
+
+                        for node in path.iter().rev() {
+                            node.write().unwrap().on_event(&event);
+                        }
+                    },
+                    None => {}
+                }
             },
             WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
             WindowEvent::Resized(size) => {
