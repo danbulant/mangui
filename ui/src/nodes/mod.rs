@@ -8,9 +8,8 @@ use taffy::layout::Layout;
 pub use taffy::style::Style as TaffyStyle;
 use taffy::Taffy;
 use crate::events::Location;
-use crate::{NodeLayoutMap, NodePtr, CurrentRenderer};
-
-type SharedTNode = Arc<RwLock<dyn Node>>;
+use crate::events::handler::InnerEventHandlerDataset;
+use crate::{NodeLayoutMap, NodePtr, CurrentRenderer, SharedNode};
 
 pub struct RenderContext {
     pub canvas: Canvas<CurrentRenderer>,
@@ -51,7 +50,7 @@ pub struct Style {
     pub overflow: Overflow
 }
 
-type NodeChildren = Vec<SharedTNode>;
+type NodeChildren = Vec<SharedNode>;
 
 pub trait Node: Debug {
     /// Return style. Usually, you just want self.style.
@@ -67,8 +66,19 @@ pub trait Node: Debug {
     /// Called when an event happens on the node. This is called after the children have been called.
     /// Beware! Events include a path and target with [Arc<RwLock<Node>>]s, but you already have a write lock for this node!
     /// Remember to check if the node is the same as self, and if it is, use self instead of the node in the path to prevent deadlocks!
-    fn on_event(&mut self, _event: &crate::events::NodeEvent) {}
+    // fn on_event(&mut self, _event: &crate::events::NodeEvent) {}
 
+    /// Returns the event handlers of the node. If the node has no event handlers, return None.
+    /// Use [EventHandlerDatabase] to manage this, and return it's handlers property.
+    /// Example code:
+    /// ```rust
+    /// fn event_handlers(&self) -> Option<InnerEventHandlerDataset> {
+    ///     Some(self.events.handlers.clone())
+    /// }
+    /// ```
+    fn event_handlers(&self) -> Option<InnerEventHandlerDataset> {
+        None
+    }
 
     /// Called when the size of window changes on the root node. Layouts do implement this.
     /// Is an optional function instead of another trait because of missing support for trait upcasting
@@ -76,7 +86,32 @@ pub trait Node: Debug {
     fn resize(&mut self, _width: f32, _height: f32) {}
 }
 
-pub fn get_element_at(node: &SharedTNode, context: &RenderContext, location: Location) -> Option<Vec<SharedTNode>> {
+/// Runs event handlers for the given path
+/// The target element should be the last one in path (event handlers are ran in reverse order)
+pub fn run_event_handlers(path: Vec<SharedNode>, event: crate::events::NodeEvent) {
+    for node in path.iter().rev() {
+        let mut node = node.read().unwrap();
+        if let Some(handlers) = node.event_handlers() {
+            drop(node);
+            for handler in handlers.lock().unwrap().values_mut() {
+                handler.lock().unwrap()(&event);
+            }
+        }
+    }
+}
+
+pub fn run_single_event_handlers(node: SharedNode, event: crate::events::NodeEvent) {
+    let mut node = node.read().unwrap();
+    if let Some(handlers) = node.event_handlers() {
+        drop(node);
+        for handler in handlers.lock().unwrap().values_mut() {
+            handler.lock().unwrap()(&event);
+        }
+    }
+}
+
+/// Attempts to get path to the element at the target location. Assumes elements are always inside their parents.
+pub fn get_element_at(node: &SharedNode, context: &RenderContext, location: Location) -> Option<Vec<SharedNode>> {
     let node_borrowed = node.read().unwrap();
     let children = node_borrowed.children();
     let taffy_node = context.node_layout.get(node);
@@ -106,7 +141,7 @@ pub fn get_element_at(node: &SharedTNode, context: &RenderContext, location: Loc
     }
 }
 
-pub fn layout_recursively(node: &SharedTNode, context: &mut RenderContext) -> taffy::node::Node {
+pub fn layout_recursively(node: &SharedNode, context: &mut RenderContext) -> taffy::node::Node {
     let taffy_node = context.node_layout.get(node);
     let taffy_node = match taffy_node {
         Some(taffy_node) => taffy_node,
@@ -133,7 +168,7 @@ pub fn layout_recursively(node: &SharedTNode, context: &mut RenderContext) -> ta
     taffy_node
 }
 
-pub fn render_recursively(node: &SharedTNode, context: &mut RenderContext) {
+pub fn render_recursively(node: &SharedNode, context: &mut RenderContext) {
     let read_node = node.read().unwrap();
     let styles = read_node.style();
     let taffy_node = context.node_layout.get(node).unwrap();

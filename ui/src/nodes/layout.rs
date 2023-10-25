@@ -1,19 +1,21 @@
 use std::fmt::{Debug, Formatter};
-use crate::nodes::{Node, NodeChildren, Style};
+use crate::{nodes::{Node, NodeChildren, Style}, events::handler::EventHandlerDatabase};
 use taffy::style::Dimension;
 
 /// A simple layout node which contains children.
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct Layout {
     pub style: Style,
-    pub children: NodeChildren
+    pub children: NodeChildren,
+    pub events: EventHandlerDatabase
 }
 
 impl Layout {
     pub fn new(children: NodeChildren) -> Layout {
         Layout {
             style: Style::default(),
-            children
+            children,
+            events: EventHandlerDatabase::default()
         }
     }
 }
@@ -39,5 +41,11 @@ impl Node for Layout {
         self.style.layout.size.height = Dimension::Points(height);
     }
 
-    fn on_event(&mut self, event: &crate::events::NodeEvent) {}
+    // fn on_event(&mut self, event: &crate::events::NodeEvent) {
+    //     // dbg!("layout", self.children.len(), &event.event);
+    // }
+
+    fn event_handlers(&self) -> Option<crate::events::handler::InnerEventHandlerDataset> {
+        Some(self.events.handlers.clone())
+    }
 }

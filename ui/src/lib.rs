@@ -9,7 +9,7 @@ use femtovg::{Canvas, Color};
 use glutin::surface::Surface;
 use glutin::{context::PossiblyCurrentContext, display::Display};
 use glutin_winit::DisplayBuilder;
-use nodes::get_element_at;
+use nodes::{get_element_at, run_event_handlers, run_single_event_handlers};
 use raw_window_handle::HasRawWindowHandle;
 use winit::event::{Event, WindowEvent, ModifiersState, DeviceId};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -126,9 +126,8 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                         })
                     };
 
-                    for node in path.iter().rev() {
-                        node.write().unwrap().on_event(&event);
-                    }
+                    run_event_handlers(path, event);
+                    window.request_redraw();
                 }
             },
             WindowEvent::DroppedFile(path) => {},
@@ -147,7 +146,8 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                             path: strong_focus_path.clone(),
                             event: if focused { events::InnerEvent::Focus } else { events::InnerEvent::Blur }
                         };
-                        strong_focus_path.last().unwrap().write().unwrap().on_event(&focus_event);
+                        // strong_focus_path.last().unwrap().write().unwrap().on_event(&focus_event);
+                        run_single_event_handlers(strong_focus_path.last().unwrap().clone(), focus_event);
 
                         let focus_event = NodeEvent {
                             target: strong_focus_path.last().unwrap().clone(),
@@ -155,9 +155,8 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                             event: if focused { events::InnerEvent::FocusIn } else { events::InnerEvent::FocusOut }
                         };
 
-                        for node in strong_focus_path.iter().rev() {
-                            node.write().unwrap().on_event(&focus_event);
-                        }
+                        run_event_handlers(strong_focus_path, focus_event);
+                        window.request_redraw();
                     },
                     None => {}
                 };
@@ -201,9 +200,8 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                             }
                         };
 
-                        for node in path.iter().rev() {
-                            node.write().unwrap().on_event(&event);
-                        }
+                        window.request_redraw();
+                        run_event_handlers(path, event);
                     },
                     None => {}
                 }

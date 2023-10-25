@@ -5,6 +5,7 @@ use winit::event::ElementState;
 pub use winit::event::{TouchPhase, MouseScrollDelta, DeviceId, ModifiersState, VirtualKeyCode, ScanCode, MouseButton};
 
 use crate::SharedNode;
+pub mod handler;
 
 #[derive(Clone, Debug)]
 pub struct NodeEvent {

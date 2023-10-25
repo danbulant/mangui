@@ -18,7 +18,8 @@ fn main() {
             }
         },
         fill: Paint::color(Color::rgb(255, 0, 0)),
-        radius: 10.
+        radius: 10.,
+        events: Default::default()
     })));
     root.children.push(Arc::new(RwLock::new(Layout {
         style: Style {
@@ -48,7 +49,8 @@ fn main() {
                     }
                 },
                 fill: Paint::color(Color::rgb(0, 255, 0)),
-                radius: 5.
+                radius: 5.,
+                events: Default::default()
             })),
             Arc::new(RwLock::new(nodes::primitives::Rectangle {
                 style: Style {
@@ -62,12 +64,13 @@ fn main() {
                     }
                 },
                 fill: Paint::color(Color::rgb(0, 255, 255)),
-                radius: 5.
+                radius: 5.,
+                events: Default::default()
             }))
-        ]
-
+        ],
+        events: Default::default()
     })));
-    root.children.push(Arc::new(RwLock::new(nodes::primitives::Rectangle {
+    let right_node = Arc::new(RwLock::new(nodes::primitives::Rectangle {
         style: Style {
             overflow: nodes::Overflow::Visible,
             layout: TaffyStyle {
@@ -79,8 +82,21 @@ fn main() {
             }
         },
         fill: Paint::color(Color::rgb(0, 0, 255)),
-        radius: 0.
-    })));
+        radius: 0.,
+        events: Default::default()
+    }));
+    root.children.push(right_node.clone());
+    right_node.clone().write().unwrap().events.add_handler(Box::new(move |event| {
+        match event.event {
+            mangui::events::InnerEvent::MouseDown(_) => {
+                right_node.write().unwrap().fill = Paint::color(Color::rgb(255, 0, 255));
+            },
+            mangui::events::InnerEvent::MouseUp(_) => {
+                right_node.write().unwrap().fill = Paint::color(Color::rgb(0, 0, 255));
+            },
+            _ => {}
+        }
+    }));
     let groot: SharedNode = Arc::new(RwLock::new(root));
 
     mangui::run_event_loop(groot);
