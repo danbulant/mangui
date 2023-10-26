@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Weak};
+use std::time::Duration;
 
 use events::{Location, MouseValue, NodeEvent, MouseEvent};
 use femtovg::renderer::OpenGl;
@@ -11,7 +12,7 @@ use glutin::{context::PossiblyCurrentContext, display::Display};
 use glutin_winit::DisplayBuilder;
 use nodes::{get_element_at, run_event_handlers, run_single_event_handlers};
 use raw_window_handle::HasRawWindowHandle;
-use winit::event::{Event, WindowEvent, ModifiersState, DeviceId};
+use winit::event::{Event, WindowEvent, Modifiers, DeviceId};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use winit::{dpi::PhysicalSize, window::Window};
@@ -40,9 +41,13 @@ type WeakNode = Weak<RwLock<dyn Node>>;
 type NodePtr = Option<Vec<WeakNode>>;
 type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::node::Node>;
 
-pub fn run_event_loop(root_node: SharedNode) -> ! {
-    let event_loop = EventLoop::new();
+pub fn run_event_loop(root_node: SharedNode) -> () {
+    let event_loop = EventLoop::new().unwrap();
     let (buffer_context, gl_display, window, surface) = create_window(&event_loop);
+
+    if let Err(res) = surface.set_swap_interval(&buffer_context, glutin::surface::SwapInterval::Wait(NonZeroU32::new(1).unwrap())) {
+        dbg!("Could not set swap interval (vsync)", res);
+    }
 
     let renderer = unsafe { OpenGl::new_from_function_cstr(|s| gl_display.get_proc_address(s) as *const _) }
         .expect("Cannot create renderer");
@@ -72,11 +77,11 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
 
     let mut should_recompute = true;
 
-    let mut modifiers = ModifiersState::default();
+    let mut modifiers = Modifiers::default();
     let focus_path: Option<Vec<WeakNode>> = None;
     let mut mouse_values: HashMap<DeviceId, MouseValue> = HashMap::new();
 
-    event_loop.run(move |event, _target, control_flow| match event {
+    event_loop.run(move |event, target| match event {
         Event::WindowEvent { event, .. } => match event {
             WindowEvent::MouseWheel { device_id, delta, phase, .. } => {},
             WindowEvent::CursorMoved { device_id, position, .. } => {
@@ -162,7 +167,7 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                 };
             },
             WindowEvent::ModifiersChanged(new_modifiers) => { modifiers = new_modifiers; },
-            WindowEvent::KeyboardInput { device_id, input, is_synthetic } => {},
+            WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {},
             WindowEvent::MouseInput { device_id, state, button, .. } => {
                 let mouse_value = mouse_values.get(&device_id);
                 let mut mouse_value = match mouse_value {
@@ -206,7 +211,7 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                     None => {}
                 }
             },
-            WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+            WindowEvent::CloseRequested => target.exit(),
             WindowEvent::Resized(size) => {
                 let width: NonZeroU32 = NonZeroU32::new(size.width).unwrap();
                 let height: NonZeroU32 = NonZeroU32::new(size.height).unwrap();
@@ -218,41 +223,51 @@ pub fn run_event_loop(root_node: SharedNode) -> ! {
                 window.request_redraw();
                 should_recompute = true;
             },
+            WindowEvent::RedrawRequested => {
+                if should_recompute {
+                    layout_recursively(&root, &mut context);
+                    let src_nodes = context.node_layout.values().map(|v| v.to_owned()).collect::<Vec<_>>();
+                    context.node_layout.remove_expired();
+                    let dst_nodes = context.node_layout.values().map(|v| v.to_owned()).collect::<Vec<_>>();
+                    for src_node in src_nodes {
+                        if !dst_nodes.contains(&src_node) {
+                            context.taffy.remove(src_node).unwrap();
+                            dbg!("Removed node", src_node);
+                        }
+                    }
+                    for (node, taffy_node) in context.node_layout.iter() {
+                        let node = node.read().unwrap();
+                        let node_style = node.style();
+                        context.taffy.set_style(*taffy_node, node_style.layout.to_owned()).unwrap();
+                    }
+                    context.taffy.compute_layout(*context.node_layout.get(&root).unwrap(), Size::MAX_CONTENT).unwrap();
+                    should_recompute = false;
+                    // Additional optimizations could be done here
+                    // - When setting styles, check that the styles aren't the same (taffy doesn't do that and instead always mark it as dirty)
+                    // - taffy seems to always recompute (maybe internally checks dirtyness, I didn't look into it that much)
+                    // - the weakmap dance (src_nodes, dst_nodes) could be avoided by changing the weakmap used
+                    //   (weakmap removes keys when you attempt to read them, we could change it so that we could iterate on them and remove them in one go)
+                    // could perhaps be a significant boost regarding memory usage (and performance) during large layout changes
+                    // dbg!("recomputed");
+                }
+                // dbg!(&root);
+                render(&buffer_context, &surface, &window, &mut context, &root);
+            }
             _ => {}
         },
-        Event::RedrawRequested(_) => {
-            if should_recompute {
-                layout_recursively(&root, &mut context);
-                let src_nodes = context.node_layout.values().map(|v| v.to_owned()).collect::<Vec<_>>();
-                context.node_layout.remove_expired();
-                let dst_nodes = context.node_layout.values().map(|v| v.to_owned()).collect::<Vec<_>>();
-                for src_node in src_nodes {
-                    if !dst_nodes.contains(&src_node) {
-                        context.taffy.remove(src_node).unwrap();
-                        dbg!("Removed node", src_node);
-                    }
+        Event::NewEvents(_) => {
+            if let Some(monitor) = window.current_monitor() {
+                if let Some(refresh_rate) = monitor.refresh_rate_millihertz() {
+                    // dbg!(refresh_rate);
+                    // some leeway before vsync
+                    target.set_control_flow(ControlFlow::wait_duration(Duration::from_millis(1000 / refresh_rate as u64 - 100/refresh_rate as u64)));
+                    window.request_redraw();
                 }
-                for (node, taffy_node) in context.node_layout.iter() {
-                    let node = node.read().unwrap();
-                    let node_style = node.style();
-                    context.taffy.set_style(*taffy_node, node_style.layout.to_owned()).unwrap();
-                }
-                context.taffy.compute_layout(*context.node_layout.get(&root).unwrap(), Size::MAX_CONTENT).unwrap();
-                should_recompute = false;
-                // Additional optimizations could be done here
-                // - When setting styles, check that the styles aren't the same (taffy doesn't do that and instead always mark it as dirty)
-                // - taffy seems to always recompute (maybe internally checks dirtyness, I didn't look into it that much)
-                // - the weakmap dance (src_nodes, dst_nodes) could be avoided by changing the weakmap used
-                //   (weakmap removes keys when you attempt to read them, we could change it so that we could iterate on them and remove them in one go)
-                // could perhaps be a significant boost regarding memory usage (and performance) during large layout changes
-                // dbg!("recomputed");
             }
-            // dbg!(&root);
-            render(&buffer_context, &surface, &window, &mut context, &root);
         },
         // In the future, window should be created after resuming from suspend (for android support)
         _ => {}
-    })
+    }).unwrap();
 }
 
 /// I have no idea if there's a better way to do this in rust...

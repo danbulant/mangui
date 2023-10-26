@@ -1,8 +1,8 @@
 use std::ops::{AddAssign, Add, SubAssign, Sub};
 
 use taffy::{prelude::Size, style::Dimension, geometry::Point};
-use winit::event::ElementState;
-pub use winit::event::{TouchPhase, MouseScrollDelta, DeviceId, ModifiersState, VirtualKeyCode, ScanCode, MouseButton};
+use winit::{event::ElementState, keyboard::{Key, KeyCode, ModifiersState}};
+pub use winit::event::{TouchPhase, MouseScrollDelta, DeviceId, Modifiers, MouseButton};
 
 use crate::SharedNode;
 pub mod handler;
@@ -62,16 +62,16 @@ pub enum InnerEvent {
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyboardEvent {
     /// Logical location ("it's effect") of the key
-    pub key: Option<VirtualKeyCode>,
+    pub key: Option<Key>,
     /// Physical location of the key
-    pub code: ScanCode,
+    pub code: KeyCode,
 
     // altKey: bool,
     // ctrlKey: bool,
     // metaKey: bool,
     // shiftKey: bool,
     /// modifier keys pressed (alt, ctrl, shift or meta/logo/windows)
-    pub modifiers: ModifiersState,
+    pub modifiers: Modifiers,
 
     // repeat: bool,
     // char_code: u32,
@@ -94,7 +94,7 @@ pub struct MouseEvent {
     // metaKey: bool,
     // shiftKey: bool,
     /// modifier keys pressed (alt, ctrl, shift or meta/logo/windows)
-    pub modifiers: ModifiersState,
+    pub modifiers: Modifiers,
 
     /// The location of the mouse relative to window
     pub client: Location,
@@ -194,19 +194,19 @@ impl Into<Size<Dimension>> for Location {
 impl MouseEvent {
     /// Returns `true` if the shift key is pressed.
     pub fn shift(&self) -> bool {
-        self.modifiers.intersects(ModifiersState::SHIFT)
+        self.modifiers.state().intersects(ModifiersState::SHIFT)
     }
     /// Returns `true` if the control key is pressed.
     pub fn ctrl(&self) -> bool {
-        self.modifiers.intersects(ModifiersState::CTRL)
+        self.modifiers.state().intersects(ModifiersState::CONTROL)
     }
     /// Returns `true` if the alt key is pressed.
     pub fn alt(&self) -> bool {
-        self.modifiers.intersects(ModifiersState::ALT)
+        self.modifiers.state().intersects(ModifiersState::ALT)
     }
     /// Returns `true` if the logo key is pressed.
     pub fn logo(&self) -> bool {
-        self.modifiers.intersects(ModifiersState::LOGO)
+        self.modifiers.state().intersects(ModifiersState::SUPER)
     }
 
     pub fn button_to_buttons(button: MouseButton) -> u8 {
@@ -214,7 +214,9 @@ impl MouseEvent {
             MouseButton::Left => 1,
             MouseButton::Right => 2,
             MouseButton::Middle => 4,
-            MouseButton::Other(n) => 1 << n
+            MouseButton::Back => 8,
+            MouseButton::Forward => 16,
+            MouseButton::Other(n) => 1 << (n + 4)
         }
     }
 }
