@@ -41,6 +41,7 @@ type WeakNode = Weak<RwLock<dyn Node>>;
 type NodePtr = Option<Vec<WeakNode>>;
 type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::node::Node>;
 
+/// The entry point of the UI.
 pub struct MainEntry {
     /// The root node of the UI
     pub root: SharedNode,
@@ -48,9 +49,15 @@ pub struct MainEntry {
     /// This is checked every 'frame' based on the monitor refresh rate.
     /// If there are no messages and no user input, no frame is scheduled.
     /// Currently, you don't need to use this after an event callback - a frame is scheduled after any event.
+    /// The "render queue" is cleared on each frame so that sending multiple values to this channel will only schedule one frame.
     pub render: std::sync::mpsc::Receiver<()>,
 }
 
+/// Starts the event loop.
+///
+/// The event loop only returns when the window is closed, and all the resources regarding the window are freed.
+/// Note that the DOM tree may not be destroyed if you hold a reference to it, and the DOM tree can be used again, although it's discouraged -
+/// your app should exit at this point and only do cleanup.
 pub fn run_event_loop(entry: MainEntry) -> () {
     let event_loop = EventLoop::new().unwrap();
     let (buffer_context, gl_display, window, surface) = create_window(&event_loop);
@@ -261,6 +268,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                     // dbg!("recomputed");
                 }
                 // dbg!(&root);
+                while let Ok(_) = entry.render.try_recv() {}
                 render(&buffer_context, &surface, &window, &mut context, &root);
             }
             _ => {}
@@ -272,7 +280,6 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                     // some leeway before vsync
                     target.set_control_flow(ControlFlow::wait_duration(Duration::from_millis(1000 / refresh_rate as u64 - 100/refresh_rate as u64)));
                     if let Ok(_) = entry.render.try_recv() {
-                        while let Ok(_) = entry.render.try_recv() {}
                         window.request_redraw();
                     }
                 }

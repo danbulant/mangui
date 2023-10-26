@@ -41,6 +41,13 @@ impl Node for Layout {
         self.style.layout.size.height = Dimension::Points(height);
     }
 
+    fn add_child_at(&mut self, child: crate::SharedNode, index: usize) -> Result<(), super::ChildAddError> {
+        if let Some(_) = self.has_child(&child) {
+            return Err(super::ChildAddError::ChildAlreadyExists);
+        }
+        self.children.insert(index, child);        Ok(())
+    }
+
     fn event_handlers(&self) -> Option<crate::events::handler::InnerEventHandlerDataset> {
         Some(self.events.handlers.clone())
     }
