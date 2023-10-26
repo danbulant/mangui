@@ -42,14 +42,6 @@ impl Node for Rectangle {
             &self.fill
         );
     }
-
-    // fn on_event(&mut self, event: &crate::events::NodeEvent) {
-    //     // dbg!("rect", &self.fill, &event.event);
-    //     self.events.handlers.lock().unwrap().values_mut().for_each(|handler| {
-    //         handler.lock().unwrap()(event, self);
-    //     });
-    // }
-
     fn event_handlers(&self) -> Option<crate::events::handler::InnerEventHandlerDataset> {
         Some(self.events.handlers.clone())
     }

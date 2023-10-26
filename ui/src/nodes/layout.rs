@@ -41,10 +41,6 @@ impl Node for Layout {
         self.style.layout.size.height = Dimension::Points(height);
     }
 
-    // fn on_event(&mut self, event: &crate::events::NodeEvent) {
-    //     // dbg!("layout", self.children.len(), &event.event);
-    // }
-
     fn event_handlers(&self) -> Option<crate::events::handler::InnerEventHandlerDataset> {
         Some(self.events.handlers.clone())
     }
