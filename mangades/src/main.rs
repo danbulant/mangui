@@ -1,8 +1,10 @@
-use std::sync::{RwLock, Arc};
+use std::sync::{RwLock, Arc, mpsc};
 
-use mangui::{self, nodes::{layout::Layout, self, Style, TaffyStyle}, taffy::{self, prelude::Size, style::Dimension}, femtovg::{Paint, Color}, SharedNode};
+use mangui::{self, nodes::{layout::Layout, self, Style, TaffyStyle}, taffy::{self, prelude::Size, style::Dimension}, femtovg::{Paint, Color}, SharedNode, MainEntry};
 
 fn main() {
+    let (tx, rx) = mpsc::channel();
+    let tx = Arc::new(tx);
     let mut root = Layout::default();
     root.style.layout.display = taffy::style::Display::Flex;
     root.style.layout.flex_direction = taffy::style::FlexDirection::Row;
@@ -99,5 +101,8 @@ fn main() {
     }));
     let groot: SharedNode = Arc::new(RwLock::new(root));
 
-    mangui::run_event_loop(groot);
+    mangui::run_event_loop(MainEntry {
+        root: groot.clone(),
+        render: rx
+    });
 }

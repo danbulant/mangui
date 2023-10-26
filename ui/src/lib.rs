@@ -41,7 +41,17 @@ type WeakNode = Weak<RwLock<dyn Node>>;
 type NodePtr = Option<Vec<WeakNode>>;
 type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::node::Node>;
 
-pub fn run_event_loop(root_node: SharedNode) -> () {
+pub struct MainEntry {
+    /// The root node of the UI
+    pub root: SharedNode,
+    /// Write an empty message to this receiver to schedule a frame.
+    /// This is checked every 'frame' based on the monitor refresh rate.
+    /// If there are no messages and no user input, no frame is scheduled.
+    /// Currently, you don't need to use this after an event callback - a frame is scheduled after any event.
+    pub render: std::sync::mpsc::Receiver<()>,
+}
+
+pub fn run_event_loop(entry: MainEntry) -> () {
     let event_loop = EventLoop::new().unwrap();
     let (buffer_context, gl_display, window, surface) = create_window(&event_loop);
 
@@ -57,13 +67,13 @@ pub fn run_event_loop(root_node: SharedNode) -> () {
     let mut taffy = Taffy::new();
     let mut taffy_map = NodeLayoutMap::new();
     {
-        let clonned = root_node.clone();
+        let clonned = entry.root.clone();
         let root = clonned.read().unwrap();
         let root_style = root.deref().style();
         let root_layout = root_style.layout.to_owned();
         let taffy_root_node = taffy.new_leaf(root_layout).unwrap();
 
-        taffy_map.insert(root_node.clone(), taffy_root_node);
+        taffy_map.insert(entry.root.clone(), taffy_root_node);
     }
 
     let mut context = RenderContext {
@@ -73,7 +83,7 @@ pub fn run_event_loop(root_node: SharedNode) -> () {
         mouse: None,
         keyboard_focus: None
     };
-    let root = root_node.clone();
+    let root = entry.root.clone();
 
     let mut should_recompute = true;
 
@@ -216,7 +226,7 @@ pub fn run_event_loop(root_node: SharedNode) -> () {
                 let width: NonZeroU32 = NonZeroU32::new(size.width).unwrap();
                 let height: NonZeroU32 = NonZeroU32::new(size.height).unwrap();
                 surface.resize(&buffer_context, width, height);
-                let mut groot = root_node.write().unwrap();
+                let mut groot = entry.root.write().unwrap();
                 // let scale_factor = window.scale_factor();
                 groot.resize(size.width as f32, size.height as f32);
                 drop(groot);
@@ -261,7 +271,10 @@ pub fn run_event_loop(root_node: SharedNode) -> () {
                     // dbg!(refresh_rate);
                     // some leeway before vsync
                     target.set_control_flow(ControlFlow::wait_duration(Duration::from_millis(1000 / refresh_rate as u64 - 100/refresh_rate as u64)));
-                    window.request_redraw();
+                    if let Ok(_) = entry.render.try_recv() {
+                        while let Ok(_) = entry.render.try_recv() {}
+                        window.request_redraw();
+                    }
                 }
             }
         },
@@ -329,5 +342,6 @@ fn render(
     render_recursively(root_node, context);
 
     context.canvas.flush();
+    window.pre_present_notify();
     surface.swap_buffers(buffer_context).expect("Could not swap buffers");
 }
