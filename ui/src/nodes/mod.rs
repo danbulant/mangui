@@ -8,7 +8,7 @@ use taffy::layout::Layout;
 use taffy::Taffy;
 use crate::events::Location;
 use crate::events::handler::{EventHandlerDatabase, InnerEventHandlerDataset};
-use crate::{NodeLayoutMap, NodePtr, CurrentRenderer, SharedNode};
+use crate::{NodeLayoutMap, NodePtr, CurrentRenderer, SharedNode, WeakNode};
 
 pub use taffy::style::Style as TaffyStyle;
 
@@ -45,10 +45,16 @@ pub enum Overflow {
     // Scroll,
     // Auto
 }
+#[derive(Copy, Clone, Default, Debug)]
+pub enum Cursor {
+    #[default]
+    Default
+}
 #[derive(Clone, Default, Debug)]
 pub struct Style {
     pub layout: TaffyStyle,
-    pub overflow: Overflow
+    pub overflow: Overflow,
+    pub cursor: Cursor
 }
 
 type NodeChildren = Vec<SharedNode>;
@@ -56,8 +62,6 @@ type NodeChildren = Vec<SharedNode>;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChildAddError {
     ChildrenNotSupported,
-    /// The child already exists in the node
-    ChildAlreadyExists,
     /// The index is out of bounds (cannot be thrown from add_child as long as the [`Node`] implementation is correct)
     OutOfBounds,
     /// Generic error text (subject to change for better error handling)
@@ -79,7 +83,12 @@ pub enum ChildAddError {
 /// If you support children in a read only matter, you can return a [`NodeChildren`] from [`Node::children`].
 ///
 /// If you also need to be able to update children, implement [`Node::add_child_at`] in addition to [`Node::children`].
-/// Other child adding methods are implemented using [`Node::add_child_at`] and/or [`Node::children`].
+/// Other child adding methods are implemented using [`Node::add_child_at`] and/or [`Node::children`] automatically.
+/// Implement [`Node::remove_child`] to support removing children.
+///
+/// # Events
+///
+/// If you need to handle events, implement [`Node::event_handlers`].
 pub trait Node: Debug {
     /// Return style.
     ///
@@ -95,6 +104,39 @@ pub trait Node: Debug {
     /// fn children(&self) -> Option<&NodeChildren> { Some(&self.children) }
     /// ```
     fn children(&self) -> Option<&NodeChildren>;
+
+    /// Render the node, called before rendering it's children
+    /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
+    fn render_pre_children(&self, _context: &mut RenderContext, _layout: Layout) {}
+    /// Render the node, called after rendering it's children
+    /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
+    fn render_post_children(&self, _context: &mut RenderContext, _layout: Layout) {}
+
+    /// Sets the parent node.
+    /// May be called multiple times with the same value.
+    ///
+    /// Implementors: SAVE A WEAK REFERENCE!
+    /// Without a weak reference, the tree will have a loop and will never be dropped.
+    ///
+    /// Example implementation:
+    /// ```rust
+    /// fn set_parent(&mut self, parent: Option<WeakNode>) {
+    ///    self.parent = parent;
+    /// }
+    fn set_parent(&mut self, parent: Option<WeakNode>);
+    /// Returns the parent node.
+    ///
+    /// Example implementation:
+    /// ```rust
+    /// fn parent(&self) -> Option<SharedNode> {
+    ///     match &self.parent {
+    ///         Some(parent) => parent.upgrade(),
+    ///         None => None
+    ///     }
+    /// }
+    /// ```
+    fn parent(&self) -> Option<SharedNode>;
+
     /// Add a child to the node. If the node does not support children, returns error ChildrenNotSupported.
     /// Adding the same child multiple times or to multiple parents is not supported and will result in undefined behavior.
     /// Arc<RwLock<Node>> does **NOT** mean that it's safe to add the same node multiple times.
@@ -115,9 +157,12 @@ pub trait Node: Debug {
     /// Arc<RwLock<Node>> does **NOT** mean that it's safe to add the same node multiple times.
     ///
     /// Implementors can check [`Node::has_child`] to check if the child already exists. Default implementation thros [`ChildAddError::ChildrenNotSupported`].
+    /// Adding a child that already exists should move that child to the new position.
     fn add_child_at(&mut self, _child: SharedNode, _index: usize) -> Result<(), ChildAddError> { Err(ChildAddError::ChildrenNotSupported) }
 
     /// Adds a child after the given child. If the node does not support children, returns error ChildrenNotSupported.
+    /// Adding the same child multiple times or to multiple parents is not supported and will result in undefined behavior.
+    /// Arc<RwLock<Node>> does **NOT** mean that it's safe to add the same node multiple times.
     fn add_child_after(&mut self, child: SharedNode, after: &SharedNode) -> Result<(), ChildAddError> {
         if let Some(_) = self.children() {
             if let Some(index) = self.has_child(after) {
@@ -130,19 +175,38 @@ pub trait Node: Debug {
         }
     }
 
-    /// Render the node, called before rendering it's children
-    /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
-    fn render_pre_children(&self, _context: &mut RenderContext, _layout: Layout) {}
-    /// Render the node, called after rendering it's children
-    /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
-    fn render_post_children(&self, _context: &mut RenderContext, _layout: Layout) {}
+    /// Adds a child before the given child. If the node does not support children, returns error ChildrenNotSupported.
+    /// Adding the same child multiple times or to multiple parents is not supported and will result in undefined behavior.
+    /// Arc<RwLock<Node>> does **NOT** mean that it's safe to add the same node multiple times.
+    fn add_child_before(&mut self, child: SharedNode, before: &SharedNode) -> Result<(), ChildAddError> {
+        if let Some(_) = self.children() {
+            if let Some(index) = self.has_child(before) {
+                self.add_child_at(child, index)
+            } else {
+                Err(ChildAddError::GenericError("Child not found".to_owned()))
+            }
+        } else {
+            Err(ChildAddError::ChildrenNotSupported)
+        }
+    }
+
+    /// Removes a child from the node. If the node does not support children, returns error ChildrenNotSupported.
+    /// Removing non-existent child is a no-op.
+    fn remove_child(&mut self, _child: &SharedNode) -> Result<(), ChildAddError> { Err(ChildAddError::ChildrenNotSupported) }
 
     /// Returns the event handlers of the node. If the node has no event handlers, return None.
     /// Use [`EventHandlerDatabase`] to manage this, and return it's handlers property.
-    /// Example code:
+    /// Example implementation:
     /// ```rust
     /// fn event_handlers(&self) -> Option<InnerEventHandlerDataset> {
     ///     Some(self.events.handlers.clone())
+    /// }
+    /// ```
+    ///
+    /// Example struct:
+    /// ```rust
+    /// struct MyNode {
+    ///    events: EventHandlerDatabase
     /// }
     /// ```
     fn event_handlers(&self) -> Option<InnerEventHandlerDataset> {
@@ -244,6 +308,7 @@ pub(crate) fn layout_recursively(node: &SharedNode, context: &mut RenderContext)
             let mut t_children = Vec::with_capacity(children.len());
             for child in children {
                 t_children.push(layout_recursively(child, context).to_owned());
+                child.write().unwrap().set_parent(Some(Arc::downgrade(node)));
             }
             context.taffy.set_children(taffy_node, t_children.as_slice()).unwrap();
         }
