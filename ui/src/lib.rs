@@ -100,7 +100,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
 
     event_loop.run(move |event, target| match event {
         Event::WindowEvent { event, .. } => match event {
-            WindowEvent::MouseWheel { device_id, delta, phase, .. } => {},
+            WindowEvent::MouseWheel { device_id: _, delta: _, phase: _, .. } => {},
             WindowEvent::CursorMoved { device_id, position, .. } => {
                 let mouse_value = mouse_values.get(&device_id);
                 let (movement, location, mouse_value) = match mouse_value {
@@ -152,8 +152,8 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                     window.request_redraw();
                 }
             },
-            WindowEvent::DroppedFile(path) => {},
-            WindowEvent::HoveredFile(path) => {},
+            WindowEvent::DroppedFile(_path) => {},
+            WindowEvent::HoveredFile(_path) => {},
             WindowEvent::HoveredFileCancelled => {},
             WindowEvent::Focused(focused) => {
                 match &focus_path {
@@ -184,7 +184,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                 };
             },
             WindowEvent::ModifiersChanged(new_modifiers) => { modifiers = new_modifiers; },
-            WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {},
+            WindowEvent::KeyboardInput { device_id: _, event: _, is_synthetic: _ } => {},
             WindowEvent::MouseInput { device_id, state, button, .. } => {
                 let mouse_value = mouse_values.get(&device_id);
                 let mut mouse_value = match mouse_value {
