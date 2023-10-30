@@ -1,4 +1,4 @@
-use proc_macro::{TokenStream, TokenTree, Ident, Group, Punct, Span};
+use proc_macro::{TokenStream, TokenTree, Ident, Group, Punct, Span, Literal};
 use quote::quote;
 
 #[derive(Debug)]
@@ -264,11 +264,20 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     output.extend(Some(TokenTree::Group(component_struct_group)));
 
 
-    // attributes TBD
+    // attributes
 
-    let attributes_struct_stream = TokenStream::new();
+    let mut attributes_struct_stream = TokenStream::new();
     output.extend(TokenStream::from(quote!(#[derive(Default)] pub struct)));
     output.extend(Some(TokenTree::Ident(attributes_ident.clone())));
+
+    for attribute in &attributes {
+        attributes_struct_stream.extend(TokenStream::from(quote!(pub)));
+        attributes_struct_stream.extend(Some(TokenTree::Ident(attribute.name.clone())));
+        attributes_struct_stream.extend(TokenStream::from(quote!(:)));
+        attributes_struct_stream.extend(attribute.type_.clone());
+        attributes_struct_stream.extend(TokenStream::from(quote!(,)));
+    }
+
     output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, attributes_struct_stream))));
 
     // partial attributes
@@ -276,7 +285,17 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     let partial_attributes_ident = Ident::new(&format!("Partial{str_name}Attributes"), Span::call_site());
     output.extend(TokenStream::from(quote!(#[derive(Default)] pub struct)));
     output.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
-    output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, TokenStream::new()))));
+    let mut attributes_default_struct_stream = TokenStream::new();
+
+    for attribute in &attributes {
+        attributes_default_struct_stream.extend(TokenStream::from(quote!(pub)));
+        attributes_default_struct_stream.extend(Some(TokenTree::Ident(attribute.name.clone())));
+        attributes_default_struct_stream.extend(TokenStream::from(quote!(: Option<)));
+        attributes_default_struct_stream.extend(attribute.type_.clone());
+        attributes_default_struct_stream.extend(TokenStream::from(quote!(>,)));
+    }
+
+    output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, attributes_default_struct_stream))));
 
     // impl From<Attributes> for PartialAttributes
 
@@ -295,8 +314,24 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     from_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, from_args))));
     from_stream.extend(TokenStream::from(quote!(-> Self)));
 
-    let mut from_fn_stream = TokenStream::new();
-    from_fn_stream.extend(TokenStream::from(quote!(Self {})));
+    let mut from_fn_stream = TokenStream::from(quote!(Self));
+
+    let mut from_fn_stream_inner = TokenStream::new();
+
+    for attribute in &attributes {
+        from_fn_stream_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
+        from_fn_stream_inner.extend(TokenStream::from(quote!(:)));
+        from_fn_stream_inner.extend(TokenStream::from(quote!(Some)));
+
+        let mut from_fn_stream_inner_inner = TokenStream::new();
+
+        from_fn_stream_inner_inner.extend(TokenStream::from(quote!(attrs.)));
+        from_fn_stream_inner_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
+
+        from_fn_stream_inner.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, from_fn_stream_inner_inner))));
+    }
+
+    from_fn_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, from_fn_stream_inner))));
 
     from_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, from_fn_stream))));
     output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, from_stream))));
@@ -313,6 +348,9 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     component_impl_stream.extend(TokenStream::from(quote!(;)));
     component_impl_stream.extend(TokenStream::from(quote!(type PartialComponentAttrs =)));
     component_impl_stream.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
+    component_impl_stream.extend(TokenStream::from(quote!(;)));
+    component_impl_stream.extend(TokenStream::from(quote!(const UPDATE_LENGTH : usize =)));
+    component_impl_stream.extend(Some(TokenTree::Literal(Literal::usize_unsuffixed(attributes.len()))));
     component_impl_stream.extend(TokenStream::from(quote!(;)));
 
     // fn new
@@ -385,7 +423,47 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     // fn set
 
     component_impl_stream.extend(TokenStream::from(quote!(fn set(&mut self, attrs: Self::PartialComponentAttrs))));
-    let set_stream = TokenStream::new();
+    let mut set_stream = TokenStream::new();
+
+    if attributes.len() > 0 {
+        set_stream.extend(TokenStream::from(quote!(let mut to_update = [0; Self::UPDATE_LENGTH];)));
+        let mut i = 0;
+        for attribute in &attributes {
+            set_stream.extend(TokenStream::from(quote!(if let Some)));
+
+            let mut some_inner = TokenStream::new();
+            some_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
+
+            set_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, some_inner))));
+
+            set_stream.extend(TokenStream::from(quote!(= attrs.)));
+            set_stream.extend(Some(TokenTree::Ident(attribute.name.clone())));
+
+            let mut set_stream_inner = TokenStream::new();
+
+            set_stream_inner.extend(TokenStream::from(quote!(self.attrs.)));
+            set_stream_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
+            set_stream_inner.extend(TokenStream::from(quote!(=)));
+            set_stream_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
+            set_stream_inner.extend(TokenStream::from(quote!(; to_update)));
+
+            let mut to_update_stream = TokenStream::new();
+
+            to_update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i / 32))));
+
+            set_stream_inner.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, to_update_stream))));
+
+            set_stream_inner.extend(TokenStream::from(quote!(|= 1 <<)));
+            set_stream_inner.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i % 32))));
+
+            set_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, set_stream_inner))));
+
+            i+=1;
+        }
+
+        set_stream.extend(TokenStream::from(quote!(if to_update.into_iter().reduce(|a,b| a+b).unwrap() != 0 { self.update(&to_update); })));
+    }
+
 
     component_impl_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, set_stream))));
 

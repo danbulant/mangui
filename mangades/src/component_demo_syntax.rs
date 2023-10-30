@@ -7,7 +7,10 @@ use rusalka::nodes::primitives::{Rectangle, RectangleAttributes};
 make_component!(
     ComponentDemo,
     Logic {
-        let radius = 5.;
+        let radius = attrs.radius;
+    }
+    Attributes {
+        radius: f32
     }
     Component {
         @layout {
