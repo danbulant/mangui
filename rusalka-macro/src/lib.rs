@@ -1,6 +1,7 @@
 use proc_macro::{TokenStream, TokenTree, Ident, Group, Punct, Span};
 use quote::quote;
 
+#[derive(Debug)]
 struct Attribute {
     name: Ident,
     default: Option<TokenStream>,
@@ -8,13 +9,21 @@ struct Attribute {
 }
 
 #[derive(Debug)]
+enum ComponentType {
+    RealComponent,
+    Node
+}
+
+#[derive(Debug)]
 struct ComponentUsed {
     name: Ident,
     contents: TokenStream,
-    parent: Option<usize>
+    parent: Option<usize>,
+    component_type: ComponentType
 }
 
 #[proc_macro]
+/// If you have syntax errors because of attributes, wrap the default value in parentheses.
 pub fn make_component(item: TokenStream) -> TokenStream {
     dbg!(&item);
 
@@ -26,7 +35,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     dbg!(&name);
 
-    // let mut attributes: Vec<Attribute> = Vec::new();
+    let mut attributes: Vec<Attribute> = Vec::new();
 
     // let mut struct_values = Vec::new();
 
@@ -42,18 +51,110 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 last_identifier = Some(ident.to_string());
                 let ident = ident.to_string();
 
-                if ident == "Logic" {
-                    // dbg!("Logic");
-                } else if ident == "Component" {
-                    // dbg!("Component");
-                } else {
-                    panic!("Unknown identifier: {:?}", ident);
+                match ident.as_str() {
+                    "Logic" | "Component" | "Attributes" => {},
+                    _ => panic!("Unknown identifier: {:?}", ident)
                 }
             },
             TokenTree::Group(group) => {
                 match &last_identifier {
                     Some(ident) => {
                         match ident.as_str() {
+                            "Attributes" => {
+                                // A struct-like definition of attributes
+                                // Example syntax:
+                                // Attributes { // we're here
+                                //   radius: f32 = 5.,
+                                //   fill: Paint,
+                                //   something: Something<(dyn Test)>
+                                // }
+                                // we need to match <> together, other groupings are already done by rust
+
+                                let mut stream = group.stream().into_iter();
+
+                                while let Some(token) = stream.next() {
+                                    let name = match token {
+                                        TokenTree::Ident(ident) => ident,
+                                        _ => panic!("Expected ident")
+                                    };
+
+                                    let colon = stream.next().unwrap();
+                                    let colon = match colon {
+                                        TokenTree::Punct(punct) => {
+                                            if punct.as_char() != ':' {
+                                                panic!("Expected :");
+                                            }
+                                            punct
+                                        },
+                                        _ => panic!("Expected :")
+                                    };
+
+                                    let mut type_ = TokenStream::new();
+
+                                    let mut last_was_set = false;
+                                    let mut ltgt_count = 0;
+
+                                    while let Some(token) = stream.next() {
+                                        match token {
+                                            TokenTree::Ident(ident) => {
+                                                type_.extend(Some(TokenTree::Ident(ident)));
+                                            },
+                                            TokenTree::Punct(punct) => {
+                                                if ltgt_count == 0 && punct.as_char() == ',' {
+                                                    break;
+                                                } else if ltgt_count == 0 && punct.as_char() == '=' {
+                                                    last_was_set = true;
+                                                    break;
+                                                } else {
+                                                    if punct.as_char() == '<' {
+                                                        ltgt_count += 1;
+                                                    } else if punct.as_char() == '>' {
+                                                        ltgt_count -= 1;
+                                                    }
+                                                    type_.extend(Some(TokenTree::Punct(punct)));
+                                                }
+                                            },
+                                            _ => {
+                                                type_.extend(Some(token));
+                                            }
+                                        }
+                                    }
+
+                                    if last_was_set {
+                                        let mut default = TokenStream::new();
+
+                                        while let Some(token) = stream.next() {
+                                            match token {
+                                                TokenTree::Ident(ident) => {
+                                                    default.extend(Some(TokenTree::Ident(ident)));
+                                                },
+                                                TokenTree::Punct(punct) => {
+                                                    if punct.as_char() == ',' {
+                                                        break;
+                                                    } else {
+                                                        default.extend(Some(TokenTree::Punct(punct)));
+                                                    }
+                                                },
+                                                _ => {
+                                                    default.extend(Some(token));
+                                                }
+                                            }
+                                        }
+
+                                        attributes.push(Attribute {
+                                            name,
+                                            default: Some(default),
+                                            type_
+                                        });
+                                    } else {
+                                        attributes.push(Attribute {
+                                            name,
+                                            default: None,
+                                            type_
+                                        });
+                                    }
+                                }
+                            },
                             "Logic" => {
                                 main_logic.push(group.stream());
                             },
@@ -131,7 +232,16 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
         let ident = Ident::new(&format!("comp{}", i), Span::call_site());
 
-        let midstream = TokenStream::from(quote!(: rusalka::SharedComponent<));
+        let mut midstream = TokenStream::from(quote!(: rusalka::));
+
+        match component.component_type {
+            ComponentType::RealComponent => {
+                midstream.extend(TokenStream::from(quote!(SharedComponent<)));
+            },
+            ComponentType::Node => {
+                midstream.extend(TokenStream::from(quote!(SharedNodeComponent<)));
+            }
+        }
 
         let component_name = component.name.clone();
 
@@ -153,13 +263,43 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     let component_struct_group = Group::new(proc_macro::Delimiter::Brace, component_struct_stream);
     output.extend(Some(TokenTree::Group(component_struct_group)));
 
-    let attributes_struct_stream = TokenStream::new();
 
     // attributes TBD
 
-    output.extend(TokenStream::from(quote!(pub struct)));
+    let attributes_struct_stream = TokenStream::new();
+    output.extend(TokenStream::from(quote!(#[derive(Default)] pub struct)));
     output.extend(Some(TokenTree::Ident(attributes_ident.clone())));
     output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, attributes_struct_stream))));
+
+    // partial attributes
+
+    let partial_attributes_ident = Ident::new(&format!("Partial{str_name}Attributes"), Span::call_site());
+    output.extend(TokenStream::from(quote!(#[derive(Default)] pub struct)));
+    output.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
+    output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, TokenStream::new()))));
+
+    // impl From<Attributes> for PartialAttributes
+
+    output.extend(TokenStream::from(quote!(impl From<)));
+    output.extend(Some(TokenTree::Ident(attributes_ident.clone())));
+    output.extend(TokenStream::from(quote!(> for)));
+    output.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
+
+    let mut from_stream = TokenStream::new();
+
+    from_stream.extend(TokenStream::from(quote!(fn from)));
+
+    let mut from_args = TokenStream::new();
+    from_args.extend(TokenStream::from(quote!(attrs:)));
+    from_args.extend(Some(TokenTree::Ident(attributes_ident.clone())));
+    from_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, from_args))));
+    from_stream.extend(TokenStream::from(quote!(-> Self)));
+
+    let mut from_fn_stream = TokenStream::new();
+    from_fn_stream.extend(TokenStream::from(quote!(Self {})));
+
+    from_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, from_fn_stream))));
+    output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, from_stream))));
 
     // Component impl
 
@@ -170,6 +310,9 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     component_impl_stream.extend(TokenStream::from(quote!(type ComponentAttrs =)));
     component_impl_stream.extend(Some(TokenTree::Ident(attributes_ident.clone())));
+    component_impl_stream.extend(TokenStream::from(quote!(;)));
+    component_impl_stream.extend(TokenStream::from(quote!(type PartialComponentAttrs =)));
+    component_impl_stream.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
     component_impl_stream.extend(TokenStream::from(quote!(;)));
 
     // fn new
@@ -196,25 +339,36 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         let mut component_stream = TokenStream::new();
 
         component_stream.extend(Some(TokenTree::Ident(component_name.clone())));
-        component_stream.extend(TokenStream::from(quote!(::new)));
 
-        let mut component_new_stream = TokenStream::new();
+        match component.component_type {
+            ComponentType::RealComponent => {
+                component_stream.extend(TokenStream::from(quote!(::new)));
 
-        let component_attributes = Ident::new(&format!("{}Attributes", component_name.to_string()), Span::call_site());
-
-        component_new_stream.extend(Some(TokenTree::Ident(component_attributes)));
-
-        let component_attributes_group_stream = TokenStream::new();
-
-        let components_attributes_group = Group::new(proc_macro::Delimiter::Brace, component_attributes_group_stream);
-
-        component_new_stream.extend(Some(TokenTree::Group(components_attributes_group)));
-
-        let component_new_group = Group::new(proc_macro::Delimiter::Parenthesis, component_new_stream);
-
-        component_stream.extend(Some(TokenTree::Group(component_new_group)));
-
-        new_returnvalue_stream.extend(wrap_in_arcmutex(component_stream));
+                let mut component_new_stream = TokenStream::new();
+        
+                // The following would allow not importing ComponentAttributes, but rust doesn't support it outside of nightly just yet
+                // component_new_stream.extend(Some(TokenTree::Punct(Punct::new('<', proc_macro::Spacing::Alone))));
+                // component_new_stream.extend(Some(TokenTree::Ident(component_name.clone())));
+                // component_new_stream.extend(TokenStream::from(quote!(as Component>::ComponentAttrs)));
+        
+                component_new_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("{}Attributes", component_name), Span::call_site()))));
+        
+                let components_attributes_group = Group::new(proc_macro::Delimiter::Brace, component.contents.clone());
+        
+                component_new_stream.extend(Some(TokenTree::Group(components_attributes_group)));
+        
+                let component_new_group = Group::new(proc_macro::Delimiter::Parenthesis, component_new_stream);
+        
+                component_stream.extend(Some(TokenTree::Group(component_new_group)));
+        
+                new_returnvalue_stream.extend(wrap_in_arcmutex(component_stream));
+            },
+            ComponentType::Node => {
+                let node_group = Group::new(proc_macro::Delimiter::Brace, component.contents.clone());
+                component_stream.extend(Some(TokenTree::Group(node_group)));
+                new_returnvalue_stream.extend(wrap_in_arcrwlock(component_stream));
+            }
+        }
         new_returnvalue_stream.extend(TokenStream::from(quote!(,)));
 
         i+=1;
@@ -230,7 +384,10 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     // fn set
 
-    component_impl_stream.extend(TokenStream::from(quote!(fn set(&mut self, attrs: Self::ComponentAttrs) { self.attrs = attrs; })));
+    component_impl_stream.extend(TokenStream::from(quote!(fn set(&mut self, attrs: Self::PartialComponentAttrs))));
+    let set_stream = TokenStream::new();
+
+    component_impl_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, set_stream))));
 
     // fn get
 
@@ -244,25 +401,75 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     for i in 0..components_used.len() {
         let ident = Ident::new(&format!("comp{}", i), Span::call_site());
+        let component = &components_used.get(i).unwrap();
 
-        let mut component_stream = TokenStream::new();
+        match component.component_type {
+            ComponentType::RealComponent => {
+                let mut component_stream = TokenStream::new();
+        
+                component_stream.extend(TokenStream::from(quote!(self.)));
+                component_stream.extend(Some(TokenTree::Ident(ident)));
+                component_stream.extend(TokenStream::from(quote!(.lock().unwrap().mount)));
+        
+                let mut component_mount_stream = TokenStream::new();
 
-        component_stream.extend(TokenStream::from(quote!(self.)));
-        component_stream.extend(Some(TokenTree::Ident(ident)));
-        component_stream.extend(TokenStream::from(quote!(.lock().unwrap().mount)));
+                match component.parent {
+                    Some(parent) => {
+                        let parent_ident = Ident::new(&format!("comp{}", parent), Span::call_site());
 
-        let mut component_mount_stream = TokenStream::new();
+                        let mut node_insert_self_stream = TokenStream::new();
 
-        component_mount_stream.extend(TokenStream::from(quote!(parent)));
-        component_mount_stream.extend(TokenStream::from(quote!(,)));
-        component_mount_stream.extend(TokenStream::from(quote!(before)));
+                        node_insert_self_stream.extend(TokenStream::from(quote!(self.)));
+                        node_insert_self_stream.extend(Some(TokenTree::Ident(parent_ident)));
+                        node_insert_self_stream.extend(TokenStream::from(quote!(.clone())));
 
-        let component_mount_group = Group::new(proc_macro::Delimiter::Parenthesis, component_mount_stream);
+                        let node_insert_self_group = Group::new(proc_macro::Delimiter::Brace, node_insert_self_stream);
+                        component_mount_stream.extend(TokenStream::from(quote!(&)));
+                        component_mount_stream.extend(Some(TokenTree::Group(node_insert_self_group)));
+                    },
+                    None => {
+                        component_mount_stream.extend(TokenStream::from(quote!(parent)));
+                    }
+                }
+                component_mount_stream.extend(TokenStream::from(quote!(,)));
+                component_mount_stream.extend(TokenStream::from(quote!(before)));
+        
+                let component_mount_group = Group::new(proc_macro::Delimiter::Parenthesis, component_mount_stream);
+        
+                component_stream.extend(Some(TokenTree::Group(component_mount_group)));
+        
+                mount_stream.extend(component_stream);
+                mount_stream.extend(TokenStream::from(quote!(;)));
+            },
+            ComponentType::Node => {
+                let mut node_stream = TokenStream::new();
 
-        component_stream.extend(Some(TokenTree::Group(component_mount_group)));
+                node_stream.extend(TokenStream::from(quote!(rusalka::nodes::insert)));
 
-        mount_stream.extend(component_stream);
-        mount_stream.extend(TokenStream::from(quote!(;)));
+                let mut node_insert_stream = TokenStream::new();
+
+                node_insert_stream.extend(TokenStream::from(quote!(parent,)));
+                node_insert_stream.extend(TokenStream::from(quote!(&)));
+
+                let mut node_insert_self_stream = TokenStream::new();
+
+                node_insert_self_stream.extend(TokenStream::from(quote!(self.)));
+                node_insert_self_stream.extend(Some(TokenTree::Ident(ident)));
+                node_insert_self_stream.extend(TokenStream::from(quote!(.clone())));
+
+                let node_insert_self_group = Group::new(proc_macro::Delimiter::Brace, node_insert_self_stream);
+                node_insert_stream.extend(Some(TokenTree::Group(node_insert_self_group)));
+
+                node_insert_stream.extend(TokenStream::from(quote!(,)));
+                node_insert_stream.extend(TokenStream::from(quote!(before)));
+
+                node_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, node_insert_stream))));
+
+                mount_stream.extend(node_stream);
+                mount_stream.extend(TokenStream::from(quote!(;)));
+            }
+        }
+
     }
 
     let mount_group = Group::new(proc_macro::Delimiter::Brace, mount_stream);
@@ -276,15 +483,39 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     for i in 0..components_used.len() {
         let ident = Ident::new(&format!("comp{}", i), Span::call_site());
+        let component = &components_used.get(i).unwrap();
 
-        let mut component_stream = TokenStream::new();
+        match component.component_type {
+            ComponentType::RealComponent => {
+                let mut component_stream = TokenStream::new();
+        
+                component_stream.extend(TokenStream::from(quote!(self.)));
+                component_stream.extend(Some(TokenTree::Ident(ident)));
+                component_stream.extend(TokenStream::from(quote!(.lock().unwrap().unmount())));
+        
+                unmount_stream.extend(component_stream);
+                unmount_stream.extend(TokenStream::from(quote!(;)));
+            },
+            ComponentType::Node => {
+                unmount_stream.extend(TokenStream::from(quote!(rusalka::nodes::detach)));
 
-        component_stream.extend(TokenStream::from(quote!(self.)));
-        component_stream.extend(Some(TokenTree::Ident(ident)));
-        component_stream.extend(TokenStream::from(quote!(.lock().unwrap().unmount())));
+                let mut node_detach_stream = TokenStream::new();
+                node_detach_stream.extend(TokenStream::from(quote!(&)));
 
-        unmount_stream.extend(component_stream);
-        unmount_stream.extend(TokenStream::from(quote!(;)));
+                let mut node_detach_self_stream = TokenStream::new();
+
+                node_detach_self_stream.extend(TokenStream::from(quote!(self.)));
+                node_detach_self_stream.extend(Some(TokenTree::Ident(ident)));
+                node_detach_self_stream.extend(TokenStream::from(quote!(.clone())));
+
+                let node_detach_self_group = Group::new(proc_macro::Delimiter::Brace, node_detach_self_stream);
+                node_detach_stream.extend(Some(TokenTree::Group(node_detach_self_group)));
+
+                let node_detach_group = Group::new(proc_macro::Delimiter::Parenthesis, node_detach_stream);
+                unmount_stream.extend(Some(TokenTree::Group(node_detach_group)));
+                unmount_stream.extend(TokenStream::from(quote!(;)));
+            }
+        }
     }
 
     let unmount_group = Group::new(proc_macro::Delimiter::Brace, unmount_stream);
@@ -292,11 +523,13 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     // fn update
 
-    component_impl_stream.extend(TokenStream::from(quote!(fn update(&self) {})));
+    component_impl_stream.extend(TokenStream::from(quote!(fn update(&self, bitmap: &[u32]) { self.check_update(bitmap); })));
 
     output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, component_impl_stream))));
 
-    dbg!(&output);
+    // dbg!(&output);
+
+    dbg!(attributes);
 
     println!("{}", output.to_string());
 
@@ -325,6 +558,26 @@ fn wrap_in_arcmutex(stream: TokenStream) -> TokenStream {
     output
 }
 
+fn wrap_in_arcrwlock(stream: TokenStream) -> TokenStream {
+    let mut output = TokenStream::new();
+
+    output.extend(TokenStream::from(quote!(std::sync::Arc::new)));
+
+    let mut mutex_group = Group::new(proc_macro::Delimiter::Parenthesis, stream);
+
+    let mut mutex_stream = TokenStream::new();
+
+    mutex_stream.extend(TokenStream::from(quote!(std::sync::RwLock::new)));
+
+    mutex_stream.extend(Some(TokenTree::Group(mutex_group)));
+
+    let arc_group = Group::new(proc_macro::Delimiter::Parenthesis, mutex_stream);
+
+    output.extend(Some(TokenTree::Group(arc_group)));
+
+    output
+}
+
 /// Call this after @
 /// Will return the main component as well as any sub-components
 /// name: the name of the component
@@ -339,10 +592,18 @@ fn parse_components(name: Ident, group: Group, next: usize, parent: Option<usize
 
     // dbg!(&name);
 
+    let name_starts_lowercase = name.to_string().chars().next().unwrap().is_lowercase();
+
     let this_component = ComponentUsed {
-        name,
+        name: if name_starts_lowercase {
+            let mut str = name.to_string();
+            str.replace_range(0..1, &str[0..1].to_uppercase());
+            let span = name.span();
+            Ident::new(&str, span)
+        } else { name },
         contents: self_stream.clone(),
-        parent
+        parent,
+        component_type: if name_starts_lowercase { ComponentType::Node } else { ComponentType::RealComponent }
     };
 
 
@@ -367,6 +628,7 @@ fn parse_components(name: Ident, group: Group, next: usize, parent: Option<usize
                     let components = parse_components(ident, group, next + components_found.len() + 1, Some(next));
                     components_found.extend(components);
                 } else {
+                    self_stream.extend(Some(TokenTree::Punct(punct)));
                     while let Some(token) = group.next() {
                         match token {
                             TokenTree::Punct(punct) => {
@@ -383,16 +645,16 @@ fn parse_components(name: Ident, group: Group, next: usize, parent: Option<usize
                     }
                 }
             },
-            _ => {
+            any => {
                 // skip until next ',', writing to self_stream
-
+                self_stream.extend(Some(any));
                 while let Some(token) = group.next() {
                     match token {
                         TokenTree::Punct(punct) => {
-                            if punct.as_char() == ',' {
+                            let char = punct.as_char();
+                            self_stream.extend(Some(TokenTree::Punct(punct)));
+                            if char == ',' {
                                 break;
-                            } else {
-                                self_stream.extend(Some(TokenTree::Punct(punct)));
                             }
                         },
                         _ => {
