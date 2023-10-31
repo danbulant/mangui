@@ -27,7 +27,7 @@ impl Component for DemoComponent {
     type PartialComponentAttrs = PartialDemoComponentAttributes;
     fn new(attrs: Self::ComponentAttrs, selfref: WeakSharedComponent<Self>) -> Self {
         let test = Arc::new(Mutex::new(Invalidator::new(false)));
-        let self_ = Self {
+        let this = Self {
             rect: Arc::new_cyclic(|selfref| Mutex::new(Rectangle::new(RectangleAttributes { ..Default::default() }, selfref.clone()))),
             layout: Arc::new(RwLock::new(Layout {
                 style: Style {
@@ -46,12 +46,12 @@ impl Component for DemoComponent {
             selfref,
             test
         };
-        let selfref = self_.selfref.clone();
-        self_.layout.write().unwrap().events.add_handler(Box::new(move |event| {
+        let selfref = this.selfref.clone();
+        this.layout.write().unwrap().events.add_handler(Box::new(move |event| {
             let selfref = selfref.upgrade().unwrap();
-            let self_ = selfref.lock().unwrap();
-            let test = &self_.test;
-            let attrs = &self_.attrs;
+            let this = selfref.lock().unwrap();
+            let attrs = &this.attrs;
+            let test = &this.test;
             match event.event {
                 mangui::events::InnerEvent::MouseDown(_) => {
                     **test.lock().unwrap() = true;
@@ -62,7 +62,7 @@ impl Component for DemoComponent {
                 _ => {}
             }
         }));
-        self_
+        this
     }
 
     fn set(&mut self, _attrs: Self::PartialComponentAttrs) { }
