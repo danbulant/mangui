@@ -1,6 +1,6 @@
 use std::sync::{RwLock, Arc, mpsc};
 
-use mangui::{self, nodes::{layout::Layout, self, Style, TaffyStyle}, taffy::{self, prelude::Size, style::Dimension}, femtovg::{Paint, Color}, SharedNode, MainEntry};
+use mangui::{self, nodes::{layout::Layout, self, Style, TaffyStyle}, taffy::{self, prelude::Size, style::Dimension}, femtovg::{Paint, Color}, SharedNode, MainEntry, events::NodeEvent};
 
 mod component_demo;
 mod component_demo_syntax;
@@ -30,7 +30,8 @@ fn main() {
     }));
     root.children.push(right_node.clone());
     right_node.clone().write().unwrap().events.add_handler(Box::new(move |event| {
-        match event.event {
+        let NodeEvent { target, path, event } = event;
+        match event {
             mangui::events::InnerEvent::MouseDown(_) => {
                 right_node.write().unwrap().fill = Paint::color(Color::rgb(255, 0, 255));
             },

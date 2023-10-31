@@ -4,13 +4,14 @@
 use std::sync::{Arc, RwLock};
 use mangui::{SharedNode, nodes::{primitives, Style}, taffy::prelude::Size, femtovg::{Paint, Color}};
 
-use crate::component::Component;
+use crate::{component::Component, SharedComponent, WeakSharedComponent};
 
 use super::{insert, detach};
 
 pub struct Rectangle {
     node: Arc<RwLock<primitives::Rectangle>>,
-    attrs: RectangleAttributes
+    attrs: RectangleAttributes,
+    selfref: WeakSharedComponent<Self>
 }
 
 #[derive(Default)]
@@ -36,7 +37,7 @@ impl Component for Rectangle {
     type ComponentAttrs = RectangleAttributes;
     type PartialComponentAttrs = PartialRectangleAttributes;
     const UPDATE_LENGTH : usize = 1;
-    fn new(attrs: Self::ComponentAttrs) -> Self {
+    fn new(attrs: Self::ComponentAttrs, selfref: WeakSharedComponent<Self>) -> Self {
         Self {
             node: Arc::new(RwLock::new(primitives::Rectangle {
                 style: Style {
@@ -53,7 +54,8 @@ impl Component for Rectangle {
                 radius: attrs.radius,
                 ..Default::default()
             })),
-            attrs
+            attrs,
+            selfref
         }
     }
 
