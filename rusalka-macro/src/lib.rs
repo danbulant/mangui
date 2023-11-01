@@ -39,13 +39,14 @@ struct ComponentUsed {
     parent: Option<usize>,
     component_type: ComponentType,
     event_listeners: Vec<EventListener>,
-    reactive_props: HashMap<Ident, ReactiveBlock>
+    reactive_props: HashMap<String, ReactiveBlock>
 }
 
 #[derive(Debug)]
 struct ReactiveBlock {
     variables: Vec<Ident>,
-    contents: TokenStream
+    contents: TokenStream,
+    prop_ident: Option<Ident>
 }
 
 #[proc_macro]
@@ -202,7 +203,8 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                                 let (variables, contents) = replace_variables(group.stream());
                                 reactive_blocks.push(ReactiveBlock {
                                     variables,
-                                    contents
+                                    contents,
+                                    prop_ident: None
                                 });
                             },
                             "Component" => {
@@ -606,8 +608,8 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
             set_stream_inner.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, to_update_stream))));
 
-            set_stream_inner.extend(TokenStream::from(quote!(|= 1 <<)));
-            set_stream_inner.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i % 32))));
+            set_stream_inner.extend(TokenStream::from(quote!(|= )));
+            set_stream_inner.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(1 << i % 32))));
 
             set_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, set_stream_inner))));
 
@@ -805,6 +807,87 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
         let inner_group = Group::new(proc_macro::Delimiter::Brace, block.contents.clone());
         update_stream.extend(Some(TokenTree::Group(inner_group)));
+    }
+
+    let mut component_index = 0;
+    'block: for component in &components_used {
+        for (prop, block) in &component.reactive_props {
+            let mut keys: Vec<u32> = vec![0; all_variables.len() / 32 + 1];
+            for variable in &block.variables {
+                let index = all_variables.iter().position(|x| x.name.to_string() == variable.to_string());
+                if let None = index {
+                    eprintln!("Warning: variable {} not found in component {}", variable, name);
+                    continue 'block;
+                }
+                let index = index.unwrap();
+                let array_offset = index / 32;
+                let num_offset = index % 32;
+                *keys.get_mut(array_offset).unwrap() |= 1 << num_offset;
+            }
+            update_stream.extend(TokenStream::from(quote!(if)));
+    
+            let mut i = 0;
+            for key in keys {
+                if i > 0 {
+                    update_stream.extend(TokenStream::from(quote!(||)));
+                }
+                update_stream.extend(TokenStream::from(quote!(bitmap)));
+                let mut ifgroup_stream = TokenStream::new();
+                // update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(key))));
+                ifgroup_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i))));
+                update_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, ifgroup_stream))));
+                update_stream.extend(TokenStream::from(quote!(&)));
+                update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(key))));
+                update_stream.extend(TokenStream::from(quote!(!= 0)));
+                i += 1;
+            }
+
+            let mut inner_stream = TokenStream::new();
+
+            match component.component_type {
+                ComponentType::Node => {
+                    inner_stream.extend(TokenStream::from(quote!(self.)));
+                    inner_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("comp{}", component_index), Span::call_site()))));
+                    inner_stream.extend(TokenStream::from(quote!(.write().unwrap().)));
+                    inner_stream.extend(Some(TokenTree::Ident(block.prop_ident.clone().unwrap())));
+                    inner_stream.extend(TokenStream::from(quote!( = )));
+                    inner_stream.extend(replace_variables(block.contents.clone()).1);
+                },
+                ComponentType::RealComponent => {
+                    inner_stream.extend(TokenStream::from(quote!(self.)));
+                    inner_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("comp{}", component_index), Span::call_site()))));
+                    inner_stream.extend(TokenStream::from(quote!(.lock().unwrap().set)));
+
+                    let mut component_set_stream = TokenStream::new();
+
+                    component_set_stream.extend(Some(TokenTree::Ident(block.prop_ident.clone().unwrap())));
+                    component_set_stream.extend(TokenStream::from(quote!(: Option::Some)));
+
+                    let component_set_some_stream = replace_variables(block.contents.clone()).1;
+
+                    let mut component_set_group = Group::new(proc_macro::Delimiter::Parenthesis, component_set_some_stream);
+                    component_set_stream.extend(Some(TokenTree::Group(component_set_group)));
+
+                    component_set_stream.extend(TokenStream::from(quote!(, ..Default::default())));
+
+                    let component_set_group = Group::new(proc_macro::Delimiter::Brace, component_set_stream);
+                    let mut component_set_outer_stream = TokenStream::new();
+
+                    let name = component.name.clone().to_string();
+
+                    component_set_outer_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("Partial{}Attributes", name), Span::call_site()))));
+
+                    component_set_outer_stream.extend(Some(TokenTree::Group(component_set_group)));
+                    let component_set_outer_group = Group::new(proc_macro::Delimiter::Parenthesis, component_set_outer_stream);
+
+                    inner_stream.extend(Some(TokenTree::Group(component_set_outer_group)));
+                }
+            }
+
+            let inner_group = Group::new(proc_macro::Delimiter::Brace, inner_stream);
+            update_stream.extend(Some(TokenTree::Group(inner_group)));
+        }
+        component_index += 1;
     }
 
     let update_group = Group::new(proc_macro::Delimiter::Brace, update_stream);
@@ -1051,11 +1134,53 @@ fn parse_components(name: Ident, group: Group, next: usize, parent: Option<usize
                     _ => panic!("Expected group after |param|")
                 };
 
-                let this_component = components_found.get_mut(next).unwrap();
+                let this_component = components_found.get_mut(0).unwrap();
                 this_component.event_listeners.push(EventListener {
                     callback: fn_group,
                     identifier: fn_param
                 });
+            },
+            TokenTree::Ident(ident) => {
+                let ident_str = ident.to_string();
+                self_stream.extend(Some(TokenTree::Ident(ident.clone())));
+                let nexttoken = group.next();
+                match nexttoken {
+                    None => {},
+                    Some(token) => match token {
+                        TokenTree::Punct(punct) if punct.as_char() == ':' => {
+                            self_stream.extend(Some(TokenTree::Punct(punct)));
+                            // likely reactive property
+                            let mut property_stream = TokenStream::new();
+                            while let Some(token) = group.next() {
+                                match token {
+                                    TokenTree::Punct(punct) => {
+                                        let char = punct.as_char();
+                                        property_stream.extend(Some(TokenTree::Punct(punct)));
+                                        if char == ',' {
+                                            break;
+                                        }
+                                    },
+                                    _ => {
+                                        property_stream.extend(Some(token));
+                                    }
+                                }
+                            }
+                            let (reactive_variables, property_stream) = replace_variables(property_stream);
+                            if reactive_variables.len() > 0 {
+                                let this_component = components_found.get_mut(0).unwrap();
+                                this_component.reactive_props.insert(ident_str, ReactiveBlock {
+                                    variables: reactive_variables,
+                                    contents: property_stream.clone(),
+                                    prop_ident: Some(ident)
+                                });
+                            }
+                            self_stream.extend(property_stream);
+                        },
+                        _ => {
+                            self_stream.extend(Some(token));
+                        }
+                    }
+                }
             },
             any => {
                 // skip until next ',', writing to self_stream
