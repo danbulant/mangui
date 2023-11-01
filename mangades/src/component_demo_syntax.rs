@@ -7,7 +7,7 @@ use rusalka::nodes::primitives::{Rectangle, RectangleAttributes};
 make_component!(
     ComponentDemo,
     MainLogic {
-        let radius = attrs.radius;
+        let _radius = attrs.radius;
     }
     Attributes {
         radius: f32
@@ -15,19 +15,24 @@ make_component!(
     Variables {
         test: bool = false
     }
+    Reactive {
+        dbg!($test);
+    }
     Component {
         @layout {
             @Rectangle {
-                radius: if $test { radius } else { 0. },
+                radius: if $test { attrs.radius } else { 0. },
                 ..Default::default()
             }
             $|event| {
                 match event.event {
                     mangui::events::InnerEvent::MouseDown(_) => {
                         $test = true;
+                        println!("Mouse down");
                     },
                     mangui::events::InnerEvent::MouseUp(_) => {
                         $test = false;
+                        println!("Mouse up");
                     },
                     _ => {}
                 }

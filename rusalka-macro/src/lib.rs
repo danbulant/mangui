@@ -1,12 +1,21 @@
+use std::collections::HashMap;
+
 use proc_macro::{TokenStream, TokenTree, Ident, Group, Punct, Span, Literal};
 use quote::quote;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Attribute {
     name: Ident,
     /// Default value - ignored in Attributes, required in variables
     default: Option<TokenStream>,
-    type_: TokenStream
+    type_: TokenStream,
+    variable_type: VariableType
+}
+
+#[derive(Debug, Clone)]
+enum VariableType {
+    Variable,
+    Attribute
 }
 
 #[derive(Debug)]
@@ -29,7 +38,14 @@ struct ComponentUsed {
     contents: TokenStream,
     parent: Option<usize>,
     component_type: ComponentType,
-    event_listeners: Vec<EventListener>
+    event_listeners: Vec<EventListener>,
+    reactive_props: HashMap<Ident, ReactiveBlock>
+}
+
+#[derive(Debug)]
+struct ReactiveBlock {
+    variables: Vec<Ident>,
+    contents: TokenStream
 }
 
 #[proc_macro]
@@ -55,6 +71,8 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     let mut components_used: Vec<ComponentUsed> = Vec::new();
 
+    let mut reactive_blocks = Vec::new();
+
     for token in item {
         match token {
             TokenTree::Ident(ident) => {
@@ -62,7 +80,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 let ident = ident.to_string();
 
                 match ident.as_str() {
-                    "MainLogic" | "Component" | "Attributes" | "Variables" => {},
+                    "MainLogic" | "Component" | "Attributes" | "Variables" | "Reactive" => {},
                     _ => panic!("Unknown identifier: {:?}", ident)
                 }
             },
@@ -89,7 +107,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                                     };
 
                                     let colon = stream.next().unwrap();
-                                    let colon = match colon {
+                                    let _colon = match colon {
                                         TokenTree::Punct(punct) => {
                                             if punct.as_char() != ':' {
                                                 panic!("Expected :");
@@ -130,9 +148,13 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                                         }
                                     }
 
+                                    let variable_type;
+
                                     let array = if ident.as_str() == "Variables" {
+                                        variable_type = VariableType::Variable;
                                         &mut reactive_variables
                                     } else {
+                                        variable_type = VariableType::Attribute;
                                         &mut attributes
                                     };
 
@@ -160,19 +182,28 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                                         array.push(Attribute {
                                             name,
                                             default: Some(default),
-                                            type_
+                                            type_,
+                                            variable_type
                                         });
                                     } else {
                                         array.push(Attribute {
                                             name,
                                             default: None,
-                                            type_
+                                            type_,
+                                            variable_type
                                         });
                                     }
                                 }
                             },
                             "MainLogic" => {
                                 main_logic.push(group.stream());
+                            },
+                            "Reactive" => {
+                                let (variables, contents) = replace_variables(group.stream());
+                                reactive_blocks.push(ReactiveBlock {
+                                    variables,
+                                    contents
+                                });
                             },
                             "Component" => {
                                 // Example syntax:
@@ -377,7 +408,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     component_impl_stream.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
     component_impl_stream.extend(TokenStream::from(quote!(;)));
     component_impl_stream.extend(TokenStream::from(quote!(const UPDATE_LENGTH : usize =)));
-    component_impl_stream.extend(Some(TokenTree::Literal(Literal::usize_unsuffixed(attributes.len()))));
+    component_impl_stream.extend(Some(TokenTree::Literal(Literal::usize_unsuffixed(f64::ceil((attributes.len() + reactive_variables.len()) as f64 / 32 as f64) as usize))));
     component_impl_stream.extend(TokenStream::from(quote!(;)));
 
     // fn new
@@ -398,7 +429,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         let mut invalidator = TokenStream::from(quote!(rusalka::invalidator::Invalidator::new));
         let mut invalidator_inner = TokenStream::new();
         if let Some(def) = &variable.default {
-            invalidator_inner.extend(replace_variables(def.clone()));
+            invalidator_inner.extend(replace_variables(def.clone()).1);
         } else {
             invalidator_inner.extend(TokenStream::from(quote!(Default::default())));
         }
@@ -439,8 +470,9 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         
                 component_new_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("{}Attributes", component_name), Span::call_site()))));
 
-                let components_attributes_group = Group::new(proc_macro::Delimiter::Brace, replace_variables(component.contents.clone()));
-        
+                let (reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
+                let components_attributes_group = Group::new(proc_macro::Delimiter::Brace, subcomponent_stream);
+
                 component_new_stream.extend(Some(TokenTree::Group(components_attributes_group)));
 
                 component_new_stream.extend(TokenStream::from(quote!(, cselfref.clone())));
@@ -452,7 +484,8 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 new_returnvalue_stream.extend(wrap_in_arcmutex_cyclic(component_stream));
             },
             ComponentType::Node => {
-                let node_group = Group::new(proc_macro::Delimiter::Brace, replace_variables(component.contents.clone()));
+                let (reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
+                let node_group = Group::new(proc_macro::Delimiter::Brace, subcomponent_stream);
                 component_stream.extend(Some(TokenTree::Group(node_group)));
                 new_returnvalue_stream.extend(wrap_in_arcrwlock(component_stream));
             }
@@ -514,7 +547,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 inner_callback_stream.extend(TokenStream::from(quote!(;)));
             }
 
-            inner_callback_stream.extend(replace_variables(event_listener.callback.clone().stream()));
+            inner_callback_stream.extend(replace_variables(event_listener.callback.clone().stream()).1);
 
             let callback_group = Group::new(proc_macro::Delimiter::Brace, inner_callback_stream);
 
@@ -579,7 +612,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
             i+=1;
         }
 
-        set_stream.extend(TokenStream::from(quote!(if to_update.into_iter().reduce(|a,b| a+b).unwrap() != 0 { self.update(&to_update); })));
+        set_stream.extend(TokenStream::from(quote!(if to_update.into_iter().reduce(|a,b| a+b).unwrap() != 0 { self.tick(Some(&to_update)); })));
     }
 
 
@@ -717,7 +750,58 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     // fn update
 
-    component_impl_stream.extend(TokenStream::from(quote!(fn update(&self, bitmap: &[u32]) { self.check_update(bitmap); })));
+    let mut all_variables = Vec::new();
+    all_variables.extend(attributes.clone());
+    all_variables.extend(reactive_variables.clone());
+
+    component_impl_stream.extend(TokenStream::from(quote!(fn update(&self, bitmap: &[u32]))));
+    let mut update_stream = TokenStream::new();
+    update_stream.extend(TokenStream::from(quote!(self.check_update(bitmap);)));
+
+
+    'block: for block in &reactive_blocks {
+        let mut keys: Vec<u32> = vec![0; all_variables.len() / 32 + 1];
+        for variable in &block.variables {
+            let index = all_variables.iter().position(|x| x.name.to_string() == variable.to_string());
+            if let None = index {
+                eprintln!("Warning: variable {} not found in component {}", variable, name);
+                continue 'block;
+            }
+            let index = index.unwrap();
+            let array_offset = index / 32;
+            let num_offset = index % 32;
+            *keys.get_mut(array_offset).unwrap() |= 1 << num_offset;
+        }
+        update_stream.extend(TokenStream::from(quote!(if)));
+
+        let mut i = 0;
+        for key in keys {
+            if i > 0 {
+                update_stream.extend(TokenStream::from(quote!(||)));
+            }
+            update_stream.extend(TokenStream::from(quote!(bitmap)));
+            let mut ifgroup_stream = TokenStream::new();
+            // update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(key))));
+            ifgroup_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i))));
+            update_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, ifgroup_stream))));
+            update_stream.extend(TokenStream::from(quote!(&)));
+            update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(key))));
+            update_stream.extend(TokenStream::from(quote!(!= 0)));
+            i += 1;
+        }
+
+        let inner_group = Group::new(proc_macro::Delimiter::Brace, block.contents.clone());
+        update_stream.extend(Some(TokenTree::Group(inner_group)));
+    }
+
+    let update_group = Group::new(proc_macro::Delimiter::Brace, update_stream);
+    component_impl_stream.extend(Some(TokenTree::Group(update_group)));
+
+
+    // fn tick
+
+    
+
 
     output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, component_impl_stream))));
 
@@ -736,10 +820,13 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 }
 
 /// Replaces $variable with **variable.lock().unwrap()
-fn replace_variables(stream: TokenStream) -> TokenStream {
+/// Returns the found variables as well as tokenstream with replaced variables
+/// Returned vec is sorted and deduplicated
+fn replace_variables(stream: TokenStream) -> (Vec<Ident>, TokenStream) {
     let mut output = TokenStream::new();
 
     let mut stream = stream.into_iter();
+    let mut idents = Vec::new();
 
     while let Some(token) = stream.next() {
         match token {
@@ -749,6 +836,7 @@ fn replace_variables(stream: TokenStream) -> TokenStream {
                     TokenTree::Ident(ident) => ident,
                     _ => panic!("Expected ident after $")
                 };
+                idents.push(ident.clone());
                 output.extend(TokenStream::from(quote!(**)));
                 output.extend(Some(TokenTree::Ident(ident.clone())));
                 output.extend(TokenStream::from(quote!(.lock().unwrap())));
@@ -757,7 +845,8 @@ fn replace_variables(stream: TokenStream) -> TokenStream {
                 let group_delim = group.delimiter();
                 let span = group.span();
                 let groupstream = replace_variables(group.stream());
-                let mut group = Group::new(group_delim, groupstream);
+                let mut group = Group::new(group_delim, groupstream.1);
+                idents.extend(groupstream.0);
                 group.set_span(span);
                 output.extend(Some(TokenTree::Group(group)));
             },
@@ -767,7 +856,10 @@ fn replace_variables(stream: TokenStream) -> TokenStream {
         }
     }
 
-    output
+    idents.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+    idents.dedup_by(|a, b| a.to_string() == b.to_string());
+
+    (idents, output)
 }
 
 fn wrap_in_arc_mutex(stream: TokenStream) -> TokenStream {
@@ -858,7 +950,8 @@ fn parse_components(name: Ident, group: Group, next: usize, parent: Option<usize
         contents: self_stream.clone(),
         parent,
         component_type: if name_starts_lowercase { ComponentType::Node } else { ComponentType::RealComponent },
-        event_listeners: Vec::new()
+        event_listeners: Vec::new(),
+        reactive_props: HashMap::new()
     };
 
     components_found.push(this_component);

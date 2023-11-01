@@ -13,6 +13,11 @@ pub trait Component {
     fn mount(&self, parent: &SharedNode, before: Option<&SharedNode>);
     fn update(&self, bitmap: &[u32]);
     fn unmount(&self);
+    fn tick(&mut self, bitmap: Option<&[u32]>) {
+        if let Some(bitmap) = bitmap {
+            self.update(bitmap);
+        }
+    }
     // fn set_selfref(&mut self, selfref: SharedComponent<Self>);
 
     fn check_update(&self, bitmap: &[u32]) -> () {

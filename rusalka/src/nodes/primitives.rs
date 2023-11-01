@@ -81,6 +81,8 @@ impl Component for Rectangle {
         if bitmap[0] & 1 != 0 {
             self.node.write().unwrap().radius = self.attrs.radius;
         }
+
+        if bitmap[0] & 1 != 0 {}
     }
 
     fn unmount(&self) {

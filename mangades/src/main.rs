@@ -1,9 +1,11 @@
-use std::sync::{RwLock, Arc, mpsc};
+use std::sync::{RwLock, Arc, mpsc, Mutex};
 
 use mangui::{self, nodes::{layout::Layout, self, Style, TaffyStyle}, taffy::{self, prelude::Size, style::Dimension}, femtovg::{Paint, Color}, SharedNode, MainEntry, events::NodeEvent};
 
 mod component_demo;
 mod component_demo_syntax;
+
+use rusalka::component::Component;
 
 fn main() {
     let (tx, rx) = mpsc::channel();
@@ -42,6 +44,9 @@ fn main() {
         }
     }));
     let groot: SharedNode = Arc::new(RwLock::new(root));
+
+    let cdemo: Arc<Mutex<component_demo_syntax::ComponentDemo>> = Arc::new_cyclic(|cself| Mutex::new(component_demo_syntax::ComponentDemo::new(component_demo_syntax::ComponentDemoAttributes { radius: 10. }, cself.clone())));
+    cdemo.lock().unwrap().mount(&groot, None);
 
     mangui::run_event_loop(MainEntry {
         root: groot.clone(),
