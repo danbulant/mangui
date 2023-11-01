@@ -470,7 +470,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         
                 component_new_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("{}Attributes", component_name), Span::call_site()))));
 
-                let (reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
+                let (_reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
                 let components_attributes_group = Group::new(proc_macro::Delimiter::Brace, subcomponent_stream);
 
                 component_new_stream.extend(Some(TokenTree::Group(components_attributes_group)));
@@ -484,7 +484,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 new_returnvalue_stream.extend(wrap_in_arcmutex_cyclic(component_stream));
             },
             ComponentType::Node => {
-                let (reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
+                let (_reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
                 let node_group = Group::new(proc_macro::Delimiter::Brace, subcomponent_stream);
                 component_stream.extend(Some(TokenTree::Group(node_group)));
                 new_returnvalue_stream.extend(wrap_in_arcrwlock(component_stream));
@@ -535,7 +535,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
             inner_callback_stream.extend(TokenStream::from(quote!(
                 let selfref = selfref.upgrade().unwrap();
-                let this = selfref.lock().unwrap();
+                let mut this = selfref.lock().unwrap();
                 let attrs = &this.attrs;
             )));
 
@@ -548,6 +548,8 @@ pub fn make_component(item: TokenStream) -> TokenStream {
             }
 
             inner_callback_stream.extend(replace_variables(event_listener.callback.clone().stream()).1);
+
+            inner_callback_stream.extend(TokenStream::from(quote!(this.tick(None);)));
 
             let callback_group = Group::new(proc_macro::Delimiter::Brace, inner_callback_stream);
 
@@ -756,8 +758,19 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     component_impl_stream.extend(TokenStream::from(quote!(fn update(&self, bitmap: &[u32]))));
     let mut update_stream = TokenStream::new();
-    update_stream.extend(TokenStream::from(quote!(self.check_update(bitmap);)));
+    update_stream.extend(TokenStream::from(quote!(
+        self.check_update(bitmap);
+        let attrs = &self.attrs;
+    )));
 
+    for variable in &reactive_variables {
+        update_stream.extend(TokenStream::from(quote!(let)));
+        update_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
+        update_stream.extend(TokenStream::from(quote!(=)));
+        update_stream.extend(TokenStream::from(quote!(&self.)));
+        update_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
+        update_stream.extend(TokenStream::from(quote!(;)));
+    }
 
     'block: for block in &reactive_blocks {
         let mut keys: Vec<u32> = vec![0; all_variables.len() / 32 + 1];
@@ -800,8 +813,48 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     // fn tick
 
-    
+    component_impl_stream.extend(TokenStream::from(quote!(fn tick(&mut self, inbitmap: Option<&[u32]>))));
 
+    let mut tick_stream = TokenStream::new();
+
+    tick_stream.extend(TokenStream::from(quote!(
+        let mut bitmap = [0; Self::UPDATE_LENGTH];
+        if let Some(inbitmap) = inbitmap {
+            bitmap.clone_from_slice(inbitmap);
+        }
+        self.check_update(&bitmap);
+    )));
+
+    let mut i = attributes.len() as u32;
+    for variable in &reactive_variables {
+        tick_stream.extend(TokenStream::from(quote!(if self.)));
+        tick_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
+        tick_stream.extend(TokenStream::from(quote!(.lock().unwrap().invalidated())));
+
+        let mut if_stream = TokenStream::new();
+
+        let array_offset = i / 32;
+        let num_offset = i % 32;
+
+        if_stream.extend(TokenStream::from(quote!(bitmap)));
+        let mut ifgroup_stream = TokenStream::new();
+        ifgroup_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(array_offset))));
+        if_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, ifgroup_stream))));
+        if_stream.extend(TokenStream::from(quote!(|= )));
+        if_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(1 << num_offset))));
+
+        tick_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, if_stream))));
+        i += 1;
+    }
+
+    tick_stream.extend(TokenStream::from(quote!(
+        if bitmap.into_iter().reduce(|a, b| a + b).unwrap() != 0 {
+            self.update(&bitmap);
+        }
+    )));
+
+    let tick_group = Group::new(proc_macro::Delimiter::Brace, tick_stream);
+    component_impl_stream.extend(Some(TokenTree::Group(tick_group)));
 
     output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, component_impl_stream))));
 

@@ -63,6 +63,7 @@ impl Component for Rectangle {
         let mut to_update = [0; Self::UPDATE_LENGTH];
         if let Some(radius) = attrs.radius {
             self.attrs.radius = radius;
+            dbg!("Radius set", radius);
             to_update[0] |= 1;
         }
         if to_update.into_iter().reduce(|a,b| a+b).unwrap() != 0 {

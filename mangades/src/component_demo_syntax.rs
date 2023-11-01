@@ -13,25 +13,25 @@ make_component!(
         radius: f32
     }
     Variables {
-        test: bool = false
+        test_: bool = false
     }
     Reactive {
-        dbg!($test);
+        dbg!($test_);
     }
     Component {
         @layout {
             @Rectangle {
-                radius: if $test { attrs.radius } else { 0. },
+                radius: if $test_ { attrs.radius } else { 0. },
                 ..Default::default()
             }
             $|event| {
                 match event.event {
                     mangui::events::InnerEvent::MouseDown(_) => {
-                        $test = true;
+                        $test_ = true;
                         println!("Mouse down");
                     },
                     mangui::events::InnerEvent::MouseUp(_) => {
-                        $test = false;
+                        $test_ = false;
                         println!("Mouse up");
                     },
                     _ => {}
