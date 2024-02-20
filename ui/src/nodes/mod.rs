@@ -1,5 +1,6 @@
 pub mod layout;
 pub mod primitives;
+pub mod image;
 
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -7,13 +8,15 @@ use femtovg::{Canvas, Color};
 use taffy::layout::Layout;
 use taffy::Taffy;
 use crate::events::Location;
-use crate::events::handler::{EventHandlerDatabase, InnerEventHandlerDataset};
+use crate::events::handler::InnerEventHandlerDataset;
 use crate::{NodeLayoutMap, NodePtr, CurrentRenderer, SharedNode, WeakNode};
 
 pub use taffy::style::Style as TaffyStyle;
 
+pub type CanvasRenderer = Canvas<CurrentRenderer>;
+
 pub struct RenderContext {
-    pub canvas: Canvas<CurrentRenderer>,
+    pub canvas: CanvasRenderer,
     pub node_layout: NodeLayoutMap,
     pub taffy: Taffy,
     pub mouse: NodePtr,
