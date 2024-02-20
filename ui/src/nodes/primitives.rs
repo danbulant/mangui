@@ -30,7 +30,7 @@ impl Node for Rectangle {
     fn children(&self) -> Option<&NodeChildren> {
         None
     }
-    fn render_pre_children(&self, context: &mut RenderContext, layout: Layout) {
+    fn render_pre_children(&mut self, context: &mut RenderContext, layout: Layout) {
         let mut path = Path::new();
         path.rounded_rect(
             0.,

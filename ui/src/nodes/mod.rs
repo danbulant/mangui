@@ -110,10 +110,10 @@ pub trait Node: Debug {
 
     /// Render the node, called before rendering it's children
     /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
-    fn render_pre_children(&self, _context: &mut RenderContext, _layout: Layout) {}
+    fn render_pre_children(&mut self, _context: &mut RenderContext, _layout: Layout) {}
     /// Render the node, called after rendering it's children
     /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
-    fn render_post_children(&self, _context: &mut RenderContext, _layout: Layout) {}
+    fn render_post_children(&mut self, _context: &mut RenderContext, _layout: Layout) {}
 
     /// Sets the parent node.
     /// May be called multiple times with the same value.
@@ -340,12 +340,12 @@ pub(crate) fn render_recursively(node: &SharedNode, context: &mut RenderContext)
         }
     }
     drop(read_node);
-    sself.read().unwrap().render_pre_children(context, layout);
+    sself.write().unwrap().render_pre_children(context, layout);
     if let Some(children) = sself.read().unwrap().children() {
         for child in children {
             render_recursively(child, context);
         }
     }
-    sself.read().unwrap().render_post_children(context, layout);
+    sself.write().unwrap().render_post_children(context, layout);
     context.canvas.restore();
 }
