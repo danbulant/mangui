@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ops::Deref;
-use std::sync::{Arc, RwLock, Weak};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 use std::time::Duration;
 
+use cosmic_text::FontSystem;
 use events::{Location, MouseValue, NodeEvent, MouseEvent};
 use femtovg::renderer::OpenGl;
 use femtovg::{Canvas, Color};
@@ -34,12 +35,17 @@ pub mod nodes;
 pub mod events;
 pub use taffy;
 pub use femtovg;
+pub use cosmic_text;
 
 pub type CurrentRenderer = OpenGl;
 pub type SharedNode = Arc<RwLock<dyn Node>>;
 type WeakNode = Weak<RwLock<dyn Node>>;
 type NodePtr = Option<Vec<WeakNode>>;
 type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::node::Node>;
+
+lazy_static::lazy_static! {
+    pub static ref FONT_SYSTEM: Mutex<FontSystem> = Mutex::new(FontSystem::new());
+}
 
 /// The entry point of the UI.
 pub struct MainEntry {
@@ -88,7 +94,8 @@ pub fn run_event_loop(entry: MainEntry) -> () {
         node_layout: taffy_map,
         taffy,
         mouse: None,
-        keyboard_focus: None
+        keyboard_focus: None,
+        scale_factor: window.scale_factor() as f32
     };
     let root = entry.root.clone();
 
@@ -238,6 +245,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                 groot.resize(size.width as f32, size.height as f32);
                 drop(groot);
                 window.request_redraw();
+                context.scale_factor = window.scale_factor() as f32;
                 should_recompute = true;
             },
             WindowEvent::RedrawRequested => {

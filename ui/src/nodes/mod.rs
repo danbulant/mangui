@@ -1,6 +1,8 @@
 pub mod layout;
 pub mod primitives;
 pub mod image;
+pub mod text;
+pub mod text_render_cache;
 
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -20,7 +22,8 @@ pub struct RenderContext {
     pub node_layout: NodeLayoutMap,
     pub taffy: Taffy,
     pub mouse: NodePtr,
-    pub keyboard_focus: NodePtr
+    pub keyboard_focus: NodePtr,
+    pub scale_factor: f32
 }
 
 impl RenderContext {

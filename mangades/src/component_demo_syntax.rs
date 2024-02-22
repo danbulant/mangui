@@ -1,6 +1,6 @@
 use rusalka_macro::make_component;
 use std::default::Default;
-use mangui::{femtovg::ImageFlags, nodes::{layout::Layout, Style}, nodes::image::Image, taffy::prelude::Size};
+use mangui::{femtovg::{ImageFlags, Color, Paint}, cosmic_text::Metrics, nodes::{layout::Layout, Style}, nodes::text::Text, nodes::image::Image, taffy::prelude::Size};
 
 use rusalka::nodes::primitives::{Rectangle, RectangleAttributes, PartialRectangleAttributes};
 
@@ -45,6 +45,22 @@ make_component!(
                 radius: 5.,
                 events: Default::default(),
                 parent: None
+            }
+            @text {
+                text: String::from("Hello, World!"),
+                metrics: Metrics::new(20., 25.),
+                paint: Paint::color(Color::rgb(0, 255, 0)),
+                style: Style {
+                    layout: mangui::nodes::TaffyStyle {
+                        min_size: Size {
+                            width: mangui::taffy::style::Dimension::Points(200.),
+                            height: mangui::taffy::style::Dimension::Points(40.)
+                        },
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
             }
             $|event| {
                 match event.event {
