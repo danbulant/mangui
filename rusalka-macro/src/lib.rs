@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use proc_macro::{TokenStream, TokenTree, Ident, Group, Punct, Span, Literal};
+use proc_macro::{TokenStream, TokenTree, Ident, Group, Span, Literal};
 use quote::quote;
 
 #[derive(Debug, Clone)]
@@ -58,9 +58,13 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     let mut item = item.into_iter();
     let name = item.next().unwrap();
     item.next().unwrap();
-    let str_name = name.to_string();
+    let name_ident = match name {
+        TokenTree::Ident(ident) => ident,
+        _ => panic!("Expected ident")
+    };
+    let str_name = name_ident.to_string();
 
-    dbg!(&name);
+    dbg!(&name_ident);
 
     let mut attributes: Vec<Attribute> = Vec::new();
 
@@ -270,14 +274,14 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     // Component struct
 
     output.extend(TokenStream::from(quote!(pub struct)));
-    output.extend(Some(name.clone()));
+    output.extend(Some(TokenTree::Ident(name_ident.clone())));
 
     let mut component_struct_stream = TokenStream::new();
 
     let mut i = 0;
     for component in &components_used {
 
-        let ident = Ident::new(&format!("comp{}", i), Span::call_site());
+        let ident = Ident::new(&format!("comp{}", i), component.name.span());
 
         let mut midstream = TokenStream::from(quote!(: rusalka::));
 
@@ -315,7 +319,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     // Attributes struct
 
-    let attributes_ident = Ident::new(&format!("{str_name}Attributes"), Span::call_site());
+    let attributes_ident = Ident::new(&format!("{str_name}Attributes"), name_ident.span());
 
     component_struct_stream.extend(TokenStream::from(quote!(attrs: )));
     component_struct_stream.extend(Some(TokenTree::Ident(attributes_ident.clone())));
@@ -342,7 +346,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     // partial attributes
 
-    let partial_attributes_ident = Ident::new(&format!("Partial{str_name}Attributes"), Span::call_site());
+    let partial_attributes_ident = Ident::new(&format!("Partial{str_name}Attributes"), name_ident.span());
     output.extend(TokenStream::from(quote!(#[derive(Default)] pub struct)));
     output.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
     let mut attributes_default_struct_stream = TokenStream::new();
@@ -399,7 +403,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     // Component impl
 
     output.extend(TokenStream::from(quote!(impl rusalka::component::Component for)));
-    output.extend(Some(name.clone()));
+    output.extend(Some(TokenTree::Ident(name_ident.clone())));
 
     let mut component_impl_stream = TokenStream::new();
 
@@ -449,7 +453,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     i = 0;
     for component in &components_used {
-        let ident = Ident::new(&format!("comp{}", i), Span::call_site());
+        let ident = Ident::new(&format!("comp{}", i), component.name.span());
         let component_name = component.name.clone();
 
         new_returnvalue_stream.extend(Some(TokenTree::Ident(ident)));
@@ -470,7 +474,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 // component_new_stream.extend(Some(TokenTree::Ident(component_name.clone())));
                 // component_new_stream.extend(TokenStream::from(quote!(as Component>::ComponentAttrs)));
         
-                component_new_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("{}Attributes", component_name), Span::call_site()))));
+                component_new_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("{}Attributes", component_name), component_name.span()))));
 
                 let (_reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
                 let components_attributes_group = Group::new(proc_macro::Delimiter::Brace, subcomponent_stream);
@@ -518,7 +522,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         for event_listener in &component.event_listeners {
             new_stream.extend(TokenStream::from(quote!(let selfref = this.selfref.clone();)));
             new_stream.extend(TokenStream::from(quote!(this.)));
-            new_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("comp{}", i), Span::call_site()))));
+            new_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("comp{}", i), component.name.span()))));
 
             // Change the following line according to how realcomponents want it - this is for nodes only
             new_stream.extend(TokenStream::from(quote!(.write().unwrap().events.add_handler)));
@@ -633,8 +637,8 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     let mut mount_stream = TokenStream::new();
 
     for i in 0..components_used.len() {
-        let ident = Ident::new(&format!("comp{}", i), Span::call_site());
         let component = &components_used.get(i).unwrap();
+        let ident = Ident::new(&format!("comp{}", i), component.name.span());
 
         match component.component_type {
             ComponentType::RealComponent => {
@@ -713,8 +717,8 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     let mut unmount_stream = TokenStream::new();
 
     for i in 0..components_used.len() {
-        let ident = Ident::new(&format!("comp{}", i), Span::call_site());
         let component = &components_used.get(i).unwrap();
+        let ident = Ident::new(&format!("comp{}", i), component.name.span());
 
         match component.component_type {
             ComponentType::RealComponent => {
@@ -779,7 +783,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         for variable in &block.variables {
             let index = all_variables.iter().position(|x| x.name.to_string() == variable.to_string());
             if let None = index {
-                eprintln!("Warning: variable {} not found in component {}", variable, name);
+                eprintln!("Warning: variable {} not found in component {}", variable, str_name);
                 continue 'block;
             }
             let index = index.unwrap();
@@ -816,7 +820,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
             for variable in &block.variables {
                 let index = all_variables.iter().position(|x| x.name.to_string() == variable.to_string());
                 if let None = index {
-                    eprintln!("Warning: variable {} not found in component {}", variable, name);
+                    eprintln!("Warning: variable {} not found in component {}", variable, str_name);
                     continue 'block;
                 }
                 let index = index.unwrap();
@@ -875,7 +879,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
                     let name = component.name.clone().to_string();
 
-                    component_set_outer_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("Partial{}Attributes", name), Span::call_site()))));
+                    component_set_outer_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("Partial{}Attributes", name), component.name.span()))));
 
                     component_set_outer_stream.extend(Some(TokenTree::Group(component_set_group)));
                     let component_set_outer_group = Group::new(proc_macro::Delimiter::Parenthesis, component_set_outer_stream);
