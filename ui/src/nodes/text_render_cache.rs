@@ -24,6 +24,12 @@ pub struct FontTexture {
     image_id: ImageId
 }
 
+#[derive(Default, Debug, Clone, Copy)]
+pub struct TextConfig {
+    pub hint: bool,
+    pub subpixel: bool,
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct RenderedGlyph {
     texture_index: usize,
@@ -57,25 +63,19 @@ impl RenderCache {
         buffer: &Buffer,
         position: (f32, f32),
         scale: f32,
+        config: TextConfig
     ) -> Result<GlyphDrawCommands, ErrorKind> {
         let mut alpha_cmd_map = HashMap::new();
         let mut color_cmd_map = HashMap::new();
 
-        //let total_height = buffer.layout_runs().len() as i32 * buffer.metrics().line_height;
+        let lines = buffer.layout_runs().filter(|run| run.line_w != 0.0).count();
+        let total_height = lines as f32 * buffer.metrics().line_height;
         for run in buffer.layout_runs() {
             for glyph in run.glyphs.iter() {
-                let physical = glyph.physical(position, scale);
-                let mut cache_key = physical.cache_key;
-                let position_x = position.0 + cache_key.x_bin.as_float();
-                let position_y = position.1 + cache_key.y_bin.as_float();
-                //let position_x = position_x - run.line_w * justify.0;
-                //let position_y = position_y - total_height as f32 * justify.1;
-                let (position_x, subpixel_x) = SubpixelBin::new(position_x);
-                let (position_y, subpixel_y) = SubpixelBin::new(position_y);
-                cache_key.x_bin = subpixel_x;
-                cache_key.y_bin = subpixel_y;
+                let physical_glyph = glyph.physical(position, scale);
+                let mut cache_key = physical_glyph.cache_key;
                 // perform cache lookup for rendered glyph
-                if let Some(rendered) = self.rendered_glyphs.entry(cache_key).or_insert_with(|| {
+                let Some(rendered) = self.rendered_glyphs.entry(cache_key).or_insert_with(|| {
                     // ...or insert it
 
                     // do the actual rasterization
@@ -86,7 +86,7 @@ impl RenderCache {
                         .scale_context
                         .builder(font.as_swash())
                         .size(f32::from_bits(cache_key.font_size_bits))
-                        .hint(true)
+                        .hint(config.hint)
                         .build();
                     let offset = Vector::new(cache_key.x_bin.as_float(), cache_key.y_bin.as_float());
                     let rendered = Render::new(&[
@@ -94,7 +94,7 @@ impl RenderCache {
                         Source::ColorBitmap(StrikeWith::BestFit),
                         Source::Outline,
                     ])
-                        .format(Format::Alpha)
+                        .format(if config.subpixel { Format::Subpixel } else { Format::Alpha })
                         .offset(offset)
                         .render(&mut scaler, cache_key.glyph_id);
 
@@ -114,26 +114,32 @@ impl RenderCache {
                                 break;
                             }
                         }
-                        let (texture_index, atlas_alloc_x, atlas_alloc_y) = found.unwrap_or_else(|| {
-                            // if no atlas could fit the texture, make a new atlas tyvm
-                            // TODO error handling
-                            let mut atlas = Atlas::new(TEXTURE_SIZE, TEXTURE_SIZE);
-                            let image_id = canvas
-                                .create_image(
-                                    Img::new(
-                                        vec![RGBA8::new(0, 0, 0, 0); TEXTURE_SIZE * TEXTURE_SIZE],
-                                        TEXTURE_SIZE,
-                                        TEXTURE_SIZE,
+
+                        let (texture_index, atlas_alloc_x, atlas_alloc_y) =
+                            found.unwrap_or_else(|| {
+                                // if no atlas could fit the texture, make a new atlas tyvm
+                                // TODO error handling
+                                let mut atlas = Atlas::new(TEXTURE_SIZE, TEXTURE_SIZE);
+                                let image_id = canvas
+                                    .create_image(
+                                        Img::new(
+                                            vec![
+                                                RGBA8::new(0, 0, 0, 0);
+                                                TEXTURE_SIZE * TEXTURE_SIZE
+                                            ],
+                                            TEXTURE_SIZE,
+                                            TEXTURE_SIZE,
+                                        )
+                                            .as_ref(),
+                                        ImageFlags::empty(),
                                     )
-                                    .as_ref(),
-                                    ImageFlags::empty(),
-                                )
-                                .unwrap();
-                            let texture_index = self.glyph_textures.len();
-                            let (x, y) = atlas.add_rect(alloc_w as usize, alloc_h as usize).unwrap();
-                            self.glyph_textures.push(FontTexture { atlas, image_id });
-                            (texture_index, x, y)
-                        });
+                                    .unwrap();
+                                let texture_index = self.glyph_textures.len();
+                                let (x, y) =
+                                    atlas.add_rect(alloc_w as usize, alloc_h as usize).unwrap();
+                                self.glyph_textures.push(FontTexture { atlas, image_id });
+                                (texture_index, x, y)
+                            });
 
                         let atlas_used_x = atlas_alloc_x as u32 + GLYPH_MARGIN;
                         let atlas_used_y = atlas_alloc_y as u32 + GLYPH_MARGIN;
@@ -174,33 +180,32 @@ impl RenderCache {
                             color_glyph: matches!(rendered.content, Content::Color),
                         }
                     })
-                }) {
-                    let cmd_map = if rendered.color_glyph {
-                        &mut color_cmd_map
-                    } else {
-                        &mut alpha_cmd_map
-                    };
+                }) else { continue };
 
-                    let cmd = cmd_map.entry(rendered.texture_index).or_insert_with(|| DrawCommand {
-                        image_id: self.glyph_textures[rendered.texture_index].image_id,
-                        quads: Vec::new(),
-                    });
+                let cmd_map = if rendered.color_glyph {
+                    &mut color_cmd_map
+                } else {
+                    &mut alpha_cmd_map
+                };
 
-                    let mut q = Quad::default();
-                    let it = 1.0 / TEXTURE_SIZE as f32;
+                let cmd = cmd_map.entry(rendered.texture_index).or_insert_with(|| DrawCommand {
+                    image_id: self.glyph_textures[rendered.texture_index].image_id,
+                    quads: Vec::new(),
+                });
 
-                    q.x0 = (position_x + glyph.x as i32 + rendered.offset_x - GLYPH_PADDING as i32) as f32;
-                    q.y0 = (position_y + run.line_y as i32 + glyph.y as i32 - rendered.offset_y - GLYPH_PADDING as i32) as f32;
-                    q.x1 = q.x0 + rendered.width as f32;
-                    q.y1 = q.y0 + rendered.height as f32;
+                let mut q = Quad::default();
+                let it = 1.0 / TEXTURE_SIZE as f32;
+                q.x0 = (physical_glyph.x + rendered.offset_x - GLYPH_PADDING as i32) as f32;
+                q.y0 = (physical_glyph.y - rendered.offset_y - GLYPH_PADDING as i32) as f32 + run.line_y;
+                q.x1 = q.x0 + rendered.width as f32;
+                q.y1 = q.y0 + rendered.height as f32;
 
-                    q.s0 = rendered.atlas_x as f32 * it;
-                    q.t0 = rendered.atlas_y as f32 * it;
-                    q.s1 = (rendered.atlas_x + rendered.width) as f32 * it;
-                    q.t1 = (rendered.atlas_y + rendered.height) as f32 * it;
+                q.s0 = rendered.atlas_x as f32 * it;
+                q.t0 = rendered.atlas_y as f32 * it;
+                q.s1 = (rendered.atlas_x + rendered.width) as f32 * it;
+                q.t1 = (rendered.atlas_y + rendered.height) as f32 * it;
 
-                    cmd.quads.push(q);
-                }
+                cmd.quads.push(q);
             }
         }
 

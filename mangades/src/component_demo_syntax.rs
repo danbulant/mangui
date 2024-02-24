@@ -3,6 +3,7 @@ use std::default::Default;
 use mangui::{femtovg::{ImageFlags, Color, Paint}, cosmic_text::Metrics, nodes::{layout::Layout, Style}, nodes::text::Text, nodes::image::Image, taffy::prelude::Size};
 use mangui::nodes::TaffyStyle;
 use mangui::taffy::Display::Block;
+use mangui::taffy::{FlexDirection, LengthPercentage, Rect};
 
 use rusalka::nodes::primitives::{Rectangle, RectangleAttributes, PartialRectangleAttributes};
 
@@ -27,10 +28,27 @@ make_component!(
     Component {
         @layout {
             @Rectangle {
-                radius: if $test_ { attrs.radius } else { 0. },
-                ..Default::default()
+                radius: if $test_ { attrs.radius } else { 0. }
             }
             @layout {
+                @text {
+                    text: String::from("Hello, World 🌎! And there's more text in here, as a single line"),
+                    metrics: Metrics::new(20., 25.),
+                    paint: Paint::color(Color::rgb(0, 255, 0)),
+                    style: Style {
+                        layout: TaffyStyle {
+                            padding: Rect {
+                                top: LengthPercentage::Length(10.),
+                                left: LengthPercentage::Length(10.),
+                                right: LengthPercentage::Length(10.),
+                                bottom: LengthPercentage::Length(10.)
+                            },
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }
                 @image {
                     style: Style {
                         layout: TaffyStyle {
@@ -46,16 +64,11 @@ make_component!(
                     radius: 5.,
                     ..Default::default()
                 }
-                @text {
-                    text: String::from("Hello, World!"),
-                    metrics: Metrics::new(20., 25.),
-                    paint: Paint::color(Color::rgb(0, 255, 0)),
-                    ..Default::default()
-                }
 
                 style: Style {
                     layout: TaffyStyle {
                         display: Block,
+                        flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
                     ..Default::default()

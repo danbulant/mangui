@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex, RwLock, Weak};
-use std::time::Duration;
 
 use cosmic_text::FontSystem;
 use events::{Location, MouseValue, NodeEvent, MouseEvent};
@@ -14,7 +13,7 @@ use glutin_winit::DisplayBuilder;
 use nodes::{get_element_at, run_event_handlers, run_single_event_handlers};
 use raw_window_handle::HasRawWindowHandle;
 use winit::event::{Event, WindowEvent, Modifiers, DeviceId};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::EventLoop;
 use winit::window::WindowBuilder;
 use winit::{dpi::PhysicalSize, window::Window};
 
@@ -79,8 +78,8 @@ pub fn run_event_loop(entry: MainEntry) -> () {
     let mut taffy = TaffyTree::new();
     let mut taffy_map = NodeLayoutMap::new();
     {
-        let clonned = entry.root.clone();
-        let root = clonned.read().unwrap();
+        let cloned = entry.root.clone();
+        let root = cloned.read().unwrap();
         let root_style = root.deref().style();
         let root_layout = root_style.layout.to_owned();
         let taffy_root_node = taffy.new_leaf(root_layout).unwrap();

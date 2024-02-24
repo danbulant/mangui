@@ -1,9 +1,10 @@
 use std::fmt::Debug;
 use crate::{events::handler::EventHandlerDatabase, SharedNode, WeakNode, FONT_SYSTEM};
 use super::{text_render_cache::RENDER_CACHE, Node, NodeChildren, Style, MeasureContext, RenderContext};
-use cosmic_text::{Attrs, Buffer, Metrics, Shaping};
+use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Stretch};
 use femtovg::{Color, Paint, Path};
 use taffy::{AvailableSpace, Size};
+use crate::nodes::text_render_cache::TextConfig;
 
 #[derive(Debug, Default)]
 pub struct Text {
@@ -38,7 +39,12 @@ impl Node for Text {
         // this can crash, but it should crash earlier during measure -> see the comment there.
         let buf = self.buffer.as_mut().unwrap();
         let mut font = FONT_SYSTEM.lock().unwrap();
-        buf.set_size(&mut font, layout.size.width, layout.size.height);
+        let offset_size = (
+            layout.padding.left + layout.padding.right + layout.border.left + layout.border.right,
+            layout.padding.top + layout.padding.bottom + layout.border.top + layout.border.bottom
+            );
+        // the height * scale factor is an ugly hack to fix height of the text... not sure why it's wrong in the first place
+        buf.set_size(&mut font, layout.content_size.width - offset_size.0, (layout.content_size.height * context.scale_factor) - offset_size.1);
         buf.set_metrics(&mut font, self.metrics.scale(context.scale_factor));
         // fill_to_cmds requires FONT_SYSTEM lock.
         drop(font);
@@ -54,10 +60,26 @@ impl Node for Text {
             &path,
             &Paint::color(Color::rgb(255, 0, 0))
         );
+        let position = (
+                layout.padding.left + layout.border.left,
+                layout.padding.top + layout.border.top
+            );
+        let mut path = Path::new();
+        path.rounded_rect(
+            position.0,
+            position.1,
+            layout.content_size.width - offset_size.0,
+            layout.content_size.height - offset_size.1,
+            0.
+        );
+        context.canvas.fill_path(
+            &path,
+            &Paint::color(Color::rgb(0, 0, 255))
+        );
         let cmds = RENDER_CACHE.lock().unwrap()
-            .fill_to_cmds(&mut context.canvas, buf, (0.0, 0.0), context.scale_factor)
+            .fill_to_cmds(&mut context.canvas, buf, position, context.scale_factor, TextConfig { hint: false, subpixel: false })
             .unwrap();
-        context.canvas.draw_glyph_commands(cmds, &self.paint, 1.0);
+        context.canvas.draw_glyph_commands(cmds, &self.paint, context.scale_factor);
     }
 
     fn measure(&mut self, context: &mut MeasureContext, known_dimensions: Size<Option<f32>>, available_space: Size<AvailableSpace>) -> Size<f32> {
@@ -74,7 +96,7 @@ impl Node for Text {
         buf.set_metrics(&mut font, self.metrics.scale(context.scale_factor));
 
         // Compute layout
-        buf.shape_until_scroll(&mut font, false);
+        buf.shape_until_scroll(&mut font, true);
         drop(font);
 
         // Determine measured size of text
@@ -82,7 +104,7 @@ impl Node for Text {
             .layout_runs()
             .fold((0.0, 0usize), |(width, total_lines), run| (run.line_w.max(width), total_lines + 1));
         // fixes text not rendering in some cases (??????)
-        let height = total_lines as f32 * buf.metrics().line_height + 1.0;
+        let height = (total_lines as f32 * buf.metrics().line_height + 1.0) / context.scale_factor;
         // fixes flickering of text on devices with non-integer scale factors due to loss of precision
         let width = width + 0.5;
 

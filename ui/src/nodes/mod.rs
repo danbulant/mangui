@@ -122,6 +122,7 @@ pub trait Node: Debug {
 
     /// Render the node, called before rendering it's children
     /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
+    /// Top left corner is after margin and similar, but before padding and border.
     fn render_pre_children(&mut self, _context: &mut RenderContext, _layout: Layout) {}
     /// Render the node, called after rendering it's children
     /// Canvas considers 0, 0 to be top left corner (for location after layouting happens)
