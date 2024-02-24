@@ -791,6 +791,9 @@ pub fn make_component(item: TokenStream) -> TokenStream {
             let num_offset = index % 32;
             *keys.get_mut(array_offset).unwrap() |= 1 << num_offset;
         }
+        if keys.iter().all(|x| *x == 0) {
+            continue 'block;
+        }
         update_stream.extend(TokenStream::from(quote!(if)));
 
         let mut i = 0;

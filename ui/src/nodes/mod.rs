@@ -7,22 +7,27 @@ pub mod text_render_cache;
 use std::fmt::Debug;
 use std::sync::Arc;
 use femtovg::{Canvas, Color};
-use taffy::layout::Layout;
-use taffy::Taffy;
 use crate::events::Location;
 use crate::events::handler::InnerEventHandlerDataset;
 use crate::{NodeLayoutMap, NodePtr, CurrentRenderer, SharedNode, WeakNode};
 
 pub use taffy::style::Style as TaffyStyle;
+use taffy::{Layout, Overflow, Size, TaffyTree};
 
 pub type CanvasRenderer = Canvas<CurrentRenderer>;
 
 pub struct RenderContext {
     pub canvas: CanvasRenderer,
     pub node_layout: NodeLayoutMap,
-    pub taffy: Taffy,
+    pub taffy: TaffyTree<WeakNode>,
     pub mouse: NodePtr,
     pub keyboard_focus: NodePtr,
+    pub scale_factor: f32,
+    pub window_size: Size<f32>
+}
+
+pub struct MeasureContext<'a> {
+    pub canvas: &'a mut CanvasRenderer,
     pub scale_factor: f32
 }
 
@@ -40,18 +45,6 @@ impl RenderContext {
 }
 
 #[derive(Copy, Clone, Default, Debug)]
-#[non_exhaustive]
-pub enum Overflow {
-    #[default]
-    /// Content is not clipped and may be rendered outside the element's box
-    Visible,
-    /// Clips the content at the border of the element
-    Hidden,
-    // tbd :)
-    // Scroll,
-    // Auto
-}
-#[derive(Copy, Clone, Default, Debug)]
 pub enum Cursor {
     #[default]
     Default
@@ -59,7 +52,6 @@ pub enum Cursor {
 #[derive(Clone, Default, Debug)]
 pub struct Style {
     pub layout: TaffyStyle,
-    pub overflow: Overflow,
     pub cursor: Cursor
 }
 
@@ -95,9 +87,26 @@ pub enum ChildAddError {
 /// # Events
 ///
 /// If you need to handle events, implement [`Node::event_handlers`].
+///
+/// # Function call order
+///
+/// Read-only functions are called in any order (style, children, event_handlers, measure).
+///
+/// `resize` is called independently of the rendering process, but not concurrently with it. The render process is single-threaded.
+///
+/// During rendering, the order is following:
+///
+/// - parents are changed ([`Node::set_parent`]) to new state according to read-only functions
+/// - [`Node::prepare_render`] is called on each node
+/// - [`Node::style`] is read
+/// - [`Node::measure`] is called on some nodes (depends on taffy); can be called multiple times
+/// - nodes are rendered, i.e. on each node, starting from the root node, the following is called:
+///    - [`Node::render_pre_children`] is called
+///    - children are rendered
+///    - [`Node::render_post_children`] is called
 pub trait Node: Debug {
     /// Return style.
-    ///
+    ///insert
     /// If you're using [`Style`] in your struct directly, your implementation can be as simple as:
     /// ```rust
     /// fn style(&self) -> &Style { &self.style }
@@ -219,6 +228,22 @@ pub trait Node: Debug {
         None
     }
 
+    /// Called on each redraw. Use this to prepare for rendering. Called before any layouting or rendering happens.
+    /// Order between nodes is not guaranteed.
+    fn prepare_render(&mut self, _context: &mut RenderContext) {}
+
+    /// Called before rendering the node to measure it's size.
+    /// The calling of this method is managed by taffy, and as such:
+    /// - It may be called multiple times (with same or different arguments) during the same render pass
+    /// - It may not be called at all
+    /// - order between nodes is not guaranteed
+    ///
+    /// If you need to change self during layouting, use [`Node::prepare_render`] to do so.
+    /// You're getting &mut self here to support things like cosmic text that require changing text data to measure it.
+    fn measure(&mut self, _context: &mut MeasureContext, _known_dimensions: Size<Option<f32>>, _available_space: Size<taffy::AvailableSpace>) -> Size<f32> {
+        Size::ZERO
+    }
+
     /// Returns true if the node has the given child
     /// Returns false if there are no children (or if the node does not support children)
     fn has_child(&self, child: &SharedNode) -> Option<usize> {
@@ -295,12 +320,15 @@ pub(crate) fn get_element_at(node: &SharedNode, context: &RenderContext, locatio
     }
 }
 
-pub(crate) fn layout_recursively(node: &SharedNode, context: &mut RenderContext) -> taffy::node::Node {
+pub(crate) fn update_taffynode_children(node: &SharedNode, context: &mut RenderContext) -> taffy::tree::NodeId {
     let taffy_node = context.node_layout.get(node);
     let taffy_node = match taffy_node {
         Some(taffy_node) => taffy_node,
         None => {
-            let taffy_node = context.taffy.new_leaf(node.read().unwrap().style().layout.to_owned()).unwrap();
+            let taffy_node = context.taffy.new_leaf_with_context(
+                node.read().unwrap().style().layout.to_owned(),
+                Arc::downgrade(node)
+            ).unwrap();
             context.node_layout.insert(node.clone(), taffy_node);
             context.node_layout.get(node).unwrap()
         }
@@ -313,7 +341,7 @@ pub(crate) fn layout_recursively(node: &SharedNode, context: &mut RenderContext)
         Some(children) => {
             let mut t_children = Vec::with_capacity(children.len());
             for child in children {
-                t_children.push(layout_recursively(child, context).to_owned());
+                t_children.push(update_taffynode_children(child, context).to_owned());
                 child.write().unwrap().set_parent(Some(Arc::downgrade(node)));
             }
             context.taffy.set_children(taffy_node, t_children.as_slice()).unwrap();
@@ -331,16 +359,15 @@ pub(crate) fn render_recursively(node: &SharedNode, context: &mut RenderContext)
     let sself = node.clone();
     context.canvas.save();
     context.canvas.translate(layout.location.x, layout.location.y);
-    match styles.overflow {
-        Overflow::Visible => {},
-        Overflow::Hidden => {
-            context.canvas.scissor(
-                0.,
-                0.,
-                layout.size.width,
-                layout.size.height,
-            );
-        }
+    let clip_width = matches!(styles.layout.overflow.x, Overflow::Hidden | Overflow::Clip);
+    let clip_height = matches!(styles.layout.overflow.y, Overflow::Hidden | Overflow::Clip);
+    if clip_width || clip_height {
+        context.canvas.scissor(
+            0.,
+            0.,
+            if clip_width { layout.size.width } else { f32::INFINITY },
+            if clip_height { layout.size.height } else { f32::INFINITY },
+        );
     }
     drop(read_node);
     sself.write().unwrap().render_pre_children(context, layout);
@@ -351,4 +378,14 @@ pub(crate) fn render_recursively(node: &SharedNode, context: &mut RenderContext)
     }
     sself.write().unwrap().render_post_children(context, layout);
     context.canvas.restore();
+}
+
+pub(crate) fn prepare_render_recursively(node: &SharedNode, context: &mut RenderContext) {
+    let mut write_node = node.write().unwrap();
+    write_node.prepare_render(context);
+    if let Some(children) = write_node.children() {
+        for child in children {
+            prepare_render_recursively(child, context);
+        }
+    }
 }

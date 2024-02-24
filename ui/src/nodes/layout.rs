@@ -39,8 +39,8 @@ impl Node for Layout {
         Some(&self.children)
     }
     fn resize(&mut self, width: f32, height: f32) {
-        self.style.layout.size.width = Dimension::Points(width);
-        self.style.layout.size.height = Dimension::Points(height);
+        self.style.layout.size.width = Dimension::Length(width);
+        self.style.layout.size.height = Dimension::Length(height);
     }
 
     fn add_child_at(&mut self, child: crate::SharedNode, index: usize) -> Result<(), super::ChildAddError> {

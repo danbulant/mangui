@@ -33,8 +33,8 @@ impl Component for DemoComponent {
                 style: Style {
                     layout: mangui::nodes::TaffyStyle {
                         min_size: Size {
-                            width: mangui::taffy::style::Dimension::Points( if **test.lock().unwrap() { 50. } else { 100. }),
-                            height: mangui::taffy::style::Dimension::Points(100.)
+                            width: mangui::taffy::style::Dimension::Length( if **test.lock().unwrap() { 50. } else { 100. }),
+                            height: mangui::taffy::style::Dimension::Length(100.)
                         },
                         ..Default::default()
                     },

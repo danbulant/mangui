@@ -49,6 +49,8 @@ lazy_static::lazy_static! {
 }
 
 impl RenderCache {
+    /// Generates draw commands from cosmic text buffer.
+    /// Note that this requires a lock on FONT_SYSTEM.
     pub(crate) fn fill_to_cmds(
         &mut self,
         canvas: &mut CanvasRenderer,

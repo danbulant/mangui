@@ -185,8 +185,8 @@ impl Into<(f32, f32)> for Location {
 impl Into<Size<Dimension>> for Location {
     fn into(self) -> Size<Dimension> {
         Size {
-            width: Dimension::Points(self.x as f32),
-            height: Dimension::Points(self.y as f32)
+            width: Dimension::Length(self.x as f32),
+            height: Dimension::Length(self.y as f32)
         }
     }
 }

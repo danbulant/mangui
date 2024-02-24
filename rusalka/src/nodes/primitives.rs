@@ -4,7 +4,7 @@
 use std::sync::{Arc, RwLock};
 use mangui::{SharedNode, nodes::{primitives, Style}, taffy::prelude::Size, femtovg::{Paint, Color}};
 
-use crate::{component::Component, SharedComponent, WeakSharedComponent};
+use crate::{component::Component, WeakSharedComponent};
 
 use super::{insert, detach};
 
@@ -43,8 +43,8 @@ impl Component for Rectangle {
                 style: Style {
                     layout: mangui::nodes::TaffyStyle {
                         min_size: Size {
-                            width: mangui::taffy::style::Dimension::Points(50.),
-                            height: mangui::taffy::style::Dimension::Points(100.)
+                            width: mangui::taffy::style::Dimension::Length(50.),
+                            height: mangui::taffy::style::Dimension::Length(100.)
                         },
                         ..Default::default()
                     },

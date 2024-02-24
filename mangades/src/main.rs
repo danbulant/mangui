@@ -4,6 +4,7 @@ use mangui::{self, nodes::{layout::Layout, self, Style, TaffyStyle}, taffy::{sel
 
 mod component_demo;
 mod component_demo_syntax;
+mod anilist;
 
 use rusalka::component::Component;
 
@@ -15,11 +16,10 @@ fn main() {
     root.style.layout.flex_direction = taffy::style::FlexDirection::Row;
     let right_node = Arc::new(RwLock::new(nodes::primitives::Rectangle {
         style: Style {
-            overflow: nodes::Overflow::Visible,
             layout: TaffyStyle {
                 min_size: Size {
-                    width: Dimension::Points(50.),
-                    height: Dimension::Points(100.)
+                    width: Dimension::Length(50.),
+                    height: Dimension::Length(100.)
                 },
                 ..Default::default()
             },

@@ -26,10 +26,9 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use taffy::geometry::Size;
-use taffy::style_helpers::TaffyMaxContent;
-use taffy::Taffy;
+use taffy::{style::AvailableSpace, TaffyTree};
 use weak_table::PtrWeakKeyHashMap;
-use crate::nodes::{layout_recursively, Node, render_recursively, RenderContext};
+use crate::nodes::{update_taffynode_children, MeasureContext, Node, render_recursively, RenderContext, prepare_render_recursively};
 
 pub mod nodes;
 pub mod events;
@@ -41,7 +40,7 @@ pub type CurrentRenderer = OpenGl;
 pub type SharedNode = Arc<RwLock<dyn Node>>;
 type WeakNode = Weak<RwLock<dyn Node>>;
 type NodePtr = Option<Vec<WeakNode>>;
-type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::node::Node>;
+type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::tree::NodeId>;
 
 lazy_static::lazy_static! {
     pub static ref FONT_SYSTEM: Mutex<FontSystem> = Mutex::new(FontSystem::new());
@@ -77,7 +76,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
 
     let canvas = Canvas::new(renderer).expect("Cannot create canvas");
 
-    let mut taffy = Taffy::new();
+    let mut taffy = TaffyTree::new();
     let mut taffy_map = NodeLayoutMap::new();
     {
         let clonned = entry.root.clone();
@@ -89,13 +88,15 @@ pub fn run_event_loop(entry: MainEntry) -> () {
         taffy_map.insert(entry.root.clone(), taffy_root_node);
     }
 
+    let size = window.inner_size();
     let mut context = RenderContext {
         canvas,
         node_layout: taffy_map,
         taffy,
         mouse: None,
         keyboard_focus: None,
-        scale_factor: window.scale_factor() as f32
+        scale_factor: window.scale_factor() as f32,
+        window_size: Size { width: size.width as f32, height: size.height as f32 }
     };
     let root = entry.root.clone();
 
@@ -250,7 +251,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
             },
             WindowEvent::RedrawRequested => {
                 if should_recompute {
-                    layout_recursively(&root, &mut context);
+                    update_taffynode_children(&root, &mut context);
                     let src_nodes = context.node_layout.values().map(|v| v.to_owned()).collect::<Vec<_>>();
                     context.node_layout.remove_expired();
                     let dst_nodes = context.node_layout.values().map(|v| v.to_owned()).collect::<Vec<_>>();
@@ -260,12 +261,33 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                             dbg!("Removed node", src_node);
                         }
                     }
+                    prepare_render_recursively(&root, &mut context);
                     for (node, taffy_node) in context.node_layout.iter() {
                         let node = node.read().unwrap();
                         let node_style = node.style();
                         context.taffy.set_style(*taffy_node, node_style.layout.to_owned()).unwrap();
                     }
-                    context.taffy.compute_layout(*context.node_layout.get(&root).unwrap(), Size::MAX_CONTENT).unwrap();
+                    let size = window.inner_size();
+                    let size = Size { width: AvailableSpace::Definite(size.width as f32), height: AvailableSpace::Definite(size.height as f32) };
+                    let RenderContext { taffy, node_layout, canvas, scale_factor, .. } = &mut context;
+                    let mut measure_context = MeasureContext { canvas, scale_factor: *scale_factor };
+                    taffy.compute_layout_with_measure(
+                        *node_layout.get(&root).unwrap(),
+                        size,
+                        |known_dimensions, available_space, _node_id, node_context| {
+                            match node_context {
+                                Some(node) => {
+                                    match node.upgrade() {
+                                        Some(node) => {
+                                            node.write().unwrap().measure(&mut measure_context, known_dimensions, available_space)
+                                        },
+                                        None => Size::ZERO
+                                    }
+                                },
+                                None => Size::ZERO
+                            }
+                        },
+                    ).unwrap();
                     should_recompute = false;
                     // Additional optimizations could be done here
                     // - When setting styles, check that the styles aren't the same (taffy doesn't do that and instead always mark it as dirty)
@@ -275,7 +297,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                     // could perhaps be a significant boost regarding memory usage (and performance) during large layout changes
                     // dbg!("recomputed");
                 }
-                // dbg!(&root);
+                // Clear the render queue
                 while let Ok(_) = entry.render.try_recv() {}
                 render(&buffer_context, &surface, &window, &mut context, &root);
             }

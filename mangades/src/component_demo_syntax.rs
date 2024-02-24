@@ -1,6 +1,8 @@
 use rusalka_macro::make_component;
 use std::default::Default;
 use mangui::{femtovg::{ImageFlags, Color, Paint}, cosmic_text::Metrics, nodes::{layout::Layout, Style}, nodes::text::Text, nodes::image::Image, taffy::prelude::Size};
+use mangui::nodes::TaffyStyle;
+use mangui::taffy::Display::Block;
 
 use rusalka::nodes::primitives::{Rectangle, RectangleAttributes, PartialRectangleAttributes};
 
@@ -28,34 +30,32 @@ make_component!(
                 radius: if $test_ { attrs.radius } else { 0. },
                 ..Default::default()
             }
-            @image {
-                style: Style {
-                    layout: mangui::nodes::TaffyStyle {
-                        min_size: Size {
-                            width: mangui::taffy::style::Dimension::Points(width),
-                            height: mangui::taffy::style::Dimension::Points(height)
+            @layout {
+                @image {
+                    style: Style {
+                        layout: TaffyStyle {
+                            min_size: Size {
+                                width: mangui::taffy::style::Dimension::Length(width),
+                                height: mangui::taffy::style::Dimension::Length(height)
+                            },
+                            ..Default::default()
                         },
                         ..Default::default()
                     },
+                    image: mangui::nodes::image::ImageLoad::LoadFile(imgpath, imgflags),
+                    radius: 5.,
                     ..Default::default()
-                },
-                image: mangui::nodes::image::ImageLoad::LoadFile(imgpath, imgflags),
-                width,
-                height,
-                radius: 5.,
-                events: Default::default(),
-                parent: None
-            }
-            @text {
-                text: String::from("Hello, World!"),
-                metrics: Metrics::new(20., 25.),
-                paint: Paint::color(Color::rgb(0, 255, 0)),
+                }
+                @text {
+                    text: String::from("Hello, World!"),
+                    metrics: Metrics::new(20., 25.),
+                    paint: Paint::color(Color::rgb(0, 255, 0)),
+                    ..Default::default()
+                }
+
                 style: Style {
-                    layout: mangui::nodes::TaffyStyle {
-                        min_size: Size {
-                            width: mangui::taffy::style::Dimension::Points(200.),
-                            height: mangui::taffy::style::Dimension::Points(40.)
-                        },
+                    layout: TaffyStyle {
+                        display: Block,
                         ..Default::default()
                     },
                     ..Default::default()

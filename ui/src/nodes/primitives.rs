@@ -1,5 +1,5 @@
 use femtovg::{Color, Paint, Path};
-use taffy::layout::Layout;
+use taffy::Layout;
 use crate::{nodes::{Node, NodeChildren, RenderContext, Style}, events::handler::EventHandlerDatabase, WeakNode, SharedNode};
 
 #[derive(Default, Debug)]
