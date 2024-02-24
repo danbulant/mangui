@@ -60,7 +60,7 @@ impl Node for Text {
         context.canvas.draw_glyph_commands(cmds, &self.paint, 1.0);
     }
 
-    fn measure(&mut self, _context: &mut MeasureContext, known_dimensions: Size<Option<f32>>, available_space: Size<AvailableSpace>) -> Size<f32> {
+    fn measure(&mut self, context: &mut MeasureContext, known_dimensions: Size<Option<f32>>, available_space: Size<AvailableSpace>) -> Size<f32> {
         let width_constraint = known_dimensions.width.unwrap_or(match available_space.width {
             AvailableSpace::MinContent => 0.0,
             AvailableSpace::MaxContent => f32::INFINITY,
@@ -69,16 +69,20 @@ impl Node for Text {
         // yes, this can crash if someone removes `buffer` during render from another thread.
         // though they're asking for it, so let them crash.
         let buf = self.buffer.as_mut().unwrap();
-        buf.set_size(&mut FONT_SYSTEM.lock().unwrap(), width_constraint, f32::INFINITY);
+        let mut font = FONT_SYSTEM.lock().unwrap();
+        buf.set_size(&mut font, width_constraint, f32::INFINITY);
+        buf.set_metrics(&mut font, self.metrics.scale(context.scale_factor));
 
         // Compute layout
-        buf.shape_until_scroll(&mut FONT_SYSTEM.lock().unwrap(), false);
+        buf.shape_until_scroll(&mut font, false);
+        drop(font);
 
         // Determine measured size of text
         let (width, total_lines) = buf
             .layout_runs()
             .fold((0.0, 0usize), |(width, total_lines), run| (run.line_w.max(width), total_lines + 1));
-        let height = total_lines as f32 * buf.metrics().line_height;
+        // fixes text not rendering in some cases (??????)
+        let height = total_lines as f32 * buf.metrics().line_height + 1.0;
         // fixes flickering of text on devices with non-integer scale factors due to loss of precision
         let width = width + 0.5;
 

@@ -52,8 +52,6 @@ struct ReactiveBlock {
 #[proc_macro]
 /// If you have syntax errors because of attributes, wrap the default value in parentheses.
 pub fn make_component(item: TokenStream) -> TokenStream {
-    dbg!(&item);
-
     let mut last_identifier = None;
     let mut item = item.into_iter();
     let name = item.next().unwrap();
@@ -63,8 +61,6 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         _ => panic!("Expected ident")
     };
     let str_name = name_ident.to_string();
-
-    dbg!(&name_ident);
 
     let mut attributes: Vec<Attribute> = Vec::new();
 
@@ -586,8 +582,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     if attributes.len() > 0 {
         set_stream.extend(TokenStream::from(quote!(let mut to_update = [0; Self::UPDATE_LENGTH];)));
-        let mut i = 0;
-        for attribute in &attributes {
+        for (i, attribute) in attributes.iter().enumerate() {
             set_stream.extend(TokenStream::from(quote!(if let Some)));
 
             let mut some_inner = TokenStream::new();
@@ -608,16 +603,14 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
             let mut to_update_stream = TokenStream::new();
 
-            to_update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i / 32))));
+            to_update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i as u32 / 32))));
 
             set_stream_inner.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, to_update_stream))));
 
             set_stream_inner.extend(TokenStream::from(quote!(|= )));
-            set_stream_inner.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(1 << i % 32))));
+            set_stream_inner.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(1 << (i as u32 % 32)))));
 
             set_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, set_stream_inner))));
-
-            i+=1;
         }
 
         set_stream.extend(TokenStream::from(quote!(if to_update.into_iter().reduce(|a,b| a+b).unwrap() != 0 { self.tick(Some(&to_update)); })));
@@ -683,7 +676,26 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
                 let mut node_insert_stream = TokenStream::new();
 
-                node_insert_stream.extend(TokenStream::from(quote!(parent,)));
+                match component.parent {
+                    Some(parent) => {
+                        let parent_ident = Ident::new(&format!("comp{}", parent), Span::call_site());
+
+                        let mut node_insert_self_stream = TokenStream::new();
+
+                        node_insert_self_stream.extend(TokenStream::from(quote!(self.)));
+                        node_insert_self_stream.extend(Some(TokenTree::Ident(parent_ident)));
+                        node_insert_self_stream.extend(TokenStream::from(quote!(.clone())));
+
+                        let node_insert_self_group = Group::new(proc_macro::Delimiter::Brace, node_insert_self_stream);
+                        node_insert_stream.extend(TokenStream::from(quote!(&)));
+                        node_insert_stream.extend(Some(TokenTree::Group(node_insert_self_group)));
+                    },
+                    None => {
+                        node_insert_stream.extend(TokenStream::from(quote!(parent)));
+                    }
+                }
+
+                node_insert_stream.extend(TokenStream::from(quote!(,)));
                 node_insert_stream.extend(TokenStream::from(quote!(&)));
 
                 let mut node_insert_self_stream = TokenStream::new();
@@ -872,7 +884,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
                     let component_set_some_stream = replace_variables(block.contents.clone()).1;
 
-                    let mut component_set_group = Group::new(proc_macro::Delimiter::Parenthesis, component_set_some_stream);
+                    let component_set_group = Group::new(proc_macro::Delimiter::Parenthesis, component_set_some_stream);
                     component_set_stream.extend(Some(TokenTree::Group(component_set_group)));
 
                     component_set_stream.extend(TokenStream::from(quote!(, ..Default::default())));
@@ -947,13 +959,6 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     component_impl_stream.extend(Some(TokenTree::Group(tick_group)));
 
     output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, component_impl_stream))));
-
-
-    // dbg!(&output);
-
-    dbg!(attributes);
-
-    dbg!(reactive_variables);
 
     println!("{}", output.to_string());
 
@@ -1079,8 +1084,6 @@ fn parse_components(name: Ident, group: Group, next: usize, parent: Option<usize
     let mut group = group.stream().into_iter();
     let mut self_stream = TokenStream::new();
 
-    // dbg!(&name);
-
     let name_starts_lowercase = name.to_string().chars().next().unwrap().is_lowercase();
 
     let this_component = ComponentUsed {
@@ -1114,7 +1117,7 @@ fn parse_components(name: Ident, group: Group, next: usize, parent: Option<usize
                     _ => panic!("Expected group after ident")
                 };
 
-                let components = parse_components(ident, group, next + components_found.len() + 1, Some(next));
+                let components = parse_components(ident, group, next + components_found.len(), Some(next));
                 components_found.extend(components);
             },
             TokenTree::Punct(punct) if punct.as_char() == '$' => {

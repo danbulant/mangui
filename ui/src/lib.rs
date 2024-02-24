@@ -304,16 +304,16 @@ pub fn run_event_loop(entry: MainEntry) -> () {
             _ => {}
         },
         Event::NewEvents(_) => {
-            if let Some(monitor) = window.current_monitor() {
-                if let Some(refresh_rate) = monitor.refresh_rate_millihertz() {
+            // if let Some(monitor) = window.current_monitor() {
+            //     if let Some(refresh_rate) = monitor.refresh_rate_millihertz() {
                     // dbg!(refresh_rate);
                     // some leeway before vsync
-                    target.set_control_flow(ControlFlow::wait_duration(Duration::from_millis(1000 / refresh_rate as u64 - 100/refresh_rate as u64)));
+                    // target.set_control_flow(ControlFlow::wait_duration(Duration::from_millis(1000 / refresh_rate as u64 - 100/refresh_rate as u64)));
                     if let Ok(_) = entry.render.try_recv() {
                         window.request_redraw();
                     }
-                }
-            }
+            //     }
+            // }
         },
         // In the future, window should be created after resuming from suspend (for android support)
         _ => {}
