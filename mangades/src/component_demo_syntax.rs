@@ -20,8 +20,7 @@ make_component!(
         test_: bool = false
     }
     Reactive {
-        println!("reactive block");
-        println!("test_ = {}", $test_);
+        dbg!($test_);
     }
     Component {
         @layout {

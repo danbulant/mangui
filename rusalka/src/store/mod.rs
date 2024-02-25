@@ -1,4 +1,5 @@
 use std::ops::{Deref, DerefMut};
+use std::ptr::drop_in_place;
 use std::sync::{atomic::AtomicU64, Arc, Mutex, Weak, MutexGuard};
 
 
@@ -11,11 +12,11 @@ pub trait Signal {
 
 pub trait ReadableStore: Signal {
     type State;
-    fn get(&self) -> &Self::State;
+    fn get(&self) -> MutexGuard<Self::State>;
 }
 
 pub trait WritableStore: ReadableStore {
-    fn set(&mut self, state: Self::State);
+    fn set(&self, state: Self::State);
 }
 
 struct Listener {
@@ -38,54 +39,54 @@ impl Drop for ReadableUnsubscribe {
 
 impl StoreUnsubscribe for ReadableUnsubscribe {}
 
-pub struct Readable<T> {
-    state: T,
-    listeners: Arc<Mutex<Vec<Listener>>>
-}
-
-impl<T> Readable<T> {
-    pub fn new(state: T) -> Self {
-        Self {
-            state,
-            listeners: Arc::new(Mutex::new(Vec::new()))
-        }
-    }
-}
+// this isn't actually usable as of now, so it's commented out until I think of a better way to do it
+// pub struct Readable<T> {
+//     state: T,
+//     listeners: Arc<Mutex<Vec<Listener>>>
+// }
+//
+// impl<T> Readable<T> {
+//     pub fn new(state: T) -> Self {
+//         Self {
+//             state,
+//             listeners: Arc::new(Mutex::new(Vec::new()))
+//         }
+//     }
+// }
 
 static CALL_COUNT: AtomicU64 = AtomicU64::new(0);
 
-impl<T: 'static> Signal for Readable<T> {
-    fn subscribe(&self, mut callback: Box<dyn FnMut()>) -> Box<dyn StoreUnsubscribe> {
-        let hash = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let mut listeners = self.listeners.lock().unwrap();
-        callback();
-        listeners.push(Listener {
-            callback,
-            hash
-        });
-        Box::new(ReadableUnsubscribe {
-            listeners: Arc::downgrade(&self.listeners),
-            hash
-        })
-    }
-}
-
-impl<T: 'static> ReadableStore for Readable<T> {
-    type State = T;
-    fn get(&self) -> &Self::State {
-        &self.state
-    }
-}
+// impl<T: 'static> Signal for Readable<T> {
+//     fn subscribe(&self, mut callback: Box<dyn FnMut()>) -> Box<dyn StoreUnsubscribe> {
+//         let hash = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+//         let mut listeners = self.listeners.lock().unwrap();
+//         listeners.push(Listener {
+//             callback,
+//             hash
+//         });
+//         Box::new(ReadableUnsubscribe {
+//             listeners: Arc::downgrade(&self.listeners),
+//             hash
+//         })
+//     }
+// }
+//
+// impl<T: 'static> ReadableStore for Readable<T> {
+//     type State = T;
+//     fn get(&self) -> &Self::State {
+//         &self.state
+//     }
+// }
 
 pub struct Writable<T> {
-    state: T,
+    state: Mutex<T>,
     listeners: Arc<Mutex<Vec<Listener>>>
 }
 
 impl<T> Writable<T> {
     pub fn new(state: T) -> Self {
         Self {
-            state,
+            state: Mutex::new(state),
             listeners: Arc::new(Mutex::new(Vec::new()))
         }
     }
@@ -95,7 +96,6 @@ impl<T: 'static> Signal for Writable<T> {
     fn subscribe(&self, mut callback: Box<dyn FnMut()>) -> Box<dyn StoreUnsubscribe> {
         let hash = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let mut listeners = self.listeners.lock().unwrap();
-        callback();
         listeners.push(Listener {
             callback,
             hash
@@ -109,14 +109,14 @@ impl<T: 'static> Signal for Writable<T> {
 
 impl<T: 'static> ReadableStore for Writable<T> {
     type State = T;
-    fn get(&self) -> &Self::State {
-        &self.state
+    fn get(&self) -> MutexGuard<Self::State> {
+        self.state.lock().unwrap()
     }
 }
 
 impl<T: 'static> WritableStore for Writable<T> {
-    fn set(&mut self, state: Self::State) {
-        self.state = state;
+    fn set(&self, state: Self::State) {
+        *self.state.lock().unwrap().deref_mut() = state;
         let mut listeners = self.listeners.lock().unwrap();
         for listener in listeners.iter_mut() {
             (listener.callback)();
@@ -130,43 +130,48 @@ impl<T: 'static> Default for Writable<T> where T: Default {
     }
 }
 
-pub struct DerefGuard<T> {
+pub struct DerefGuard<'a, T> {
     listeners: Arc<Mutex<Vec<Listener>>>,
     tainted: bool,
-    inner: T
+    // this is an option because we need to drop the guard before we trigger the listeners
+    // this is only none during the drop function - see https://doc.rust-lang.org/stable/nomicon/destructors.html
+    inner: Option<MutexGuard<'a, T>>
 }
 
 pub trait DerefGuardExt<T>: WritableStore + Signal {
-    fn guard(&mut self) -> DerefGuard<&mut T>;
+    fn guard(&self) -> DerefGuard<T>;
 }
 
 impl <T: 'static> DerefGuardExt<T> for Writable<T> {
-    fn guard(&mut self) -> DerefGuard<&mut T> {
+    fn guard(&self) -> DerefGuard<T> {
         DerefGuard {
             listeners: self.listeners.clone(),
             tainted: false,
-            inner: &mut self.state
+            inner: Some(self.state.lock().unwrap())
         }
     }
 }
 
-impl<T> Deref for DerefGuard<T> {
-    type Target = T;
+impl<'a, T> Deref for DerefGuard<'a, T> {
+    type Target = MutexGuard<'a, T>;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner.as_ref().unwrap()
     }
 }
 
-impl<T> DerefMut for DerefGuard<T> {
+impl<'a, T> DerefMut for DerefGuard<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.tainted = true;
-        &mut self.inner
+        self.inner.as_mut().unwrap()
     }
 }
 
-impl<T> Drop for DerefGuard<T> {
+impl<'a, T> Drop for DerefGuard<'a, T> {
     fn drop(&mut self) {
         if self.tainted {
+            let inner = self.inner.take().unwrap();
+            drop(inner);
+
             let mut listeners = self.listeners.lock().unwrap();
             for listener in listeners.iter_mut() {
                 (listener.callback)();
@@ -186,6 +191,11 @@ impl StoreUnsubscribe for VecUnsub {}
 
 // odd that I have to implement this but whatever makes the compiler happy
 impl<T: Signal> Signal for MutexGuard<'_, T> {
+    fn subscribe(&self, callback: Box<dyn FnMut()>) -> Box<dyn StoreUnsubscribe> {
+        self.deref().subscribe(callback)
+    }
+}
+impl<T: Signal> Signal for Arc<T> {
     fn subscribe(&self, callback: Box<dyn FnMut()>) -> Box<dyn StoreUnsubscribe> {
         self.deref().subscribe(callback)
     }

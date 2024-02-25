@@ -316,9 +316,9 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     for variable in &reactive_variables {
         component_struct_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
         component_struct_stream.extend(TokenStream::from(quote!(:)));
-        component_struct_stream.extend(TokenStream::from(quote!(std::sync::Arc<std::sync::Mutex<rusalka::store::Writable<)));
+        component_struct_stream.extend(TokenStream::from(quote!(std::sync::Arc<rusalka::store::Writable<)));
         component_struct_stream.extend(variable.type_.clone());
-        component_struct_stream.extend(TokenStream::from(quote!(>>>)));
+        component_struct_stream.extend(TokenStream::from(quote!(>>)));
         component_struct_stream.extend(TokenStream::from(quote!(,)));
     }
 
@@ -380,9 +380,9 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     for attribute in &attributes {
         attributes_default_struct_stream.extend(TokenStream::from(quote!(pub)));
         attributes_default_struct_stream.extend(Some(TokenTree::Ident(attribute.name.clone())));
-        attributes_default_struct_stream.extend(TokenStream::from(quote!(:  std::sync::Arc<std::sync::Mutex<rusalka::store::Writable<)));
+        attributes_default_struct_stream.extend(TokenStream::from(quote!(:  std::sync::Arc<rusalka::store::Writable<)));
         attributes_default_struct_stream.extend(attribute.type_.clone());
-        attributes_default_struct_stream.extend(TokenStream::from(quote!(>>>,)));
+        attributes_default_struct_stream.extend(TokenStream::from(quote!(>>,)));
     }
 
     output.extend(Some(TokenTree::Group(Group::new(proc_macro2::Delimiter::Brace, attributes_default_struct_stream))));
@@ -450,7 +450,7 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     for attribute in &attributes {
         let name = attribute.name.clone();
         from_fn_stream_inner.extend(TokenStream::from(quote!(
-            #name : std::sync::Arc::new(std::sync::Mutex::new(rusalka::store::Writable::new(attrs.#name)))
+            #name : std::sync::Arc::new(rusalka::store::Writable::new(attrs.#name))
         )));
     }
 
@@ -500,8 +500,8 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
             invalidator_inner.extend(TokenStream::from(quote!(Default::default())));
         }
         new_stream.extend(TokenStream::from(quote!(
-            let #name : std::sync::Arc<std::sync::Mutex<rusalka::store::Writable< #type_ >>> =
-            std::sync::Arc::new(std::sync::Mutex::new(rusalka::store::Writable::new( #invalidator_inner )));
+            let #name : std::sync::Arc<rusalka::store::Writable< #type_ >> =
+            std::sync::Arc::new(rusalka::store::Writable::new( #invalidator_inner ));
         )));
     }
 
@@ -568,13 +568,19 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
         let ident = format_ident!("sub{}", i);
         let content = &reactive_block.contents;
         let variables = &reactive_block.variables;
+        let vecvariables = reactive_block.variables.iter().map(|v| format_ident!("vec{}", v));
+        let vecvariables2 = reactive_block.variables.iter().map(|v| format_ident!("vec{}", v));
         new_returnvalue_stream.extend(quote!(
             #ident: {
                 #(let #variables = #variables.clone();)*
-                [#(#variables.clone().lock().unwrap()),*].subscribe(Box::new(move || {
+                #(let #vecvariables = #variables.clone();)*
+                let vec = [#(#vecvariables2),*];
+                let res = vec.subscribe(Box::new(move || {
                     #(let #variables = #variables.clone();)*
                     #content
-                }))
+                }));
+                drop(vec);
+                res
             },
         ));
         i+=1;
@@ -675,7 +681,7 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
             set_stream_inner.extend(TokenStream::from(quote!(self.attrs.)));
             set_stream_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
-            set_stream_inner.extend(TokenStream::from(quote!(.lock().unwrap().set)));
+            set_stream_inner.extend(TokenStream::from(quote!(.set)));
 
             let mut set_stream_inner_inner = TokenStream::new();
 
@@ -869,7 +875,7 @@ fn replace_variables(stream: TokenStream) -> (Vec<Ident>, TokenStream) {
                 idents.push(ident.clone());
                 output.extend(TokenStream::from(quote!(**)));
                 output.extend(Some(TokenTree::Ident(ident.clone())));
-                output.extend(TokenStream::from(quote!(.lock().unwrap().guard())));
+                output.extend(TokenStream::from(quote!(.guard())));
             },
             TokenTree::Group(group) => {
                 let group_delim = group.delimiter();
