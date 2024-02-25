@@ -4,6 +4,7 @@ use mangui::{self, nodes::layout::Layout, SharedNode, MainEntry};
 
 mod component_demo_syntax;
 mod anilist;
+mod slot_demo;
 
 use rusalka::component::Component;
 

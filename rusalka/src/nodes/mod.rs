@@ -1,8 +1,6 @@
 use std::sync::Arc;
 use mangui::SharedNode;
 
-pub mod primitives;
-
 pub fn detach(node: &SharedNode) {
     if let Some(parent) = node.read().unwrap().parent() {
         parent.write().unwrap().remove_child(node).unwrap();

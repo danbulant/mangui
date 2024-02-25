@@ -5,12 +5,9 @@ use mangui::nodes::TaffyStyle;
 use mangui::taffy::Display::Block;
 use mangui::taffy::{FlexDirection, LengthPercentage, Rect};
 
-use rusalka::nodes::primitives::{Rectangle, RectangleAttributes, PartialRectangleAttributes};
-
 make_component!(
     ComponentDemo,
     MainLogic {
-        let _radius = attrs.radius;
         let imgpath = std::path::PathBuf::from("./demo/large/bx117324-97mHyfJGwpBq.jpg");
         let imgflags = ImageFlags::empty();
         let width = 230.;
@@ -23,13 +20,11 @@ make_component!(
         test_: bool = false
     }
     Reactive {
-        // dbg!($test_);
+        println!("reactive block");
+        println!("test_ = {}", $test_);
     }
     Component {
         @layout {
-            @Rectangle {
-                radius: if $test_ { attrs.radius } else { 0. }
-            }
             @layout {
                 @text {
                     text: String::from("Hello, World 🌎! And there's more text in here, as a single line"),

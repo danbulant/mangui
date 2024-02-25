@@ -5,7 +5,6 @@ use mangui::nodes::Node;
 
 pub mod component;
 pub mod nodes;
-pub mod invalidator;
 pub mod store;
 
 pub type SharedComponent<T: Component> = Arc<Mutex<T>>;

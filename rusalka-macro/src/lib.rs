@@ -1,7 +1,7 @@
+use proc_macro2::{Ident, TokenStream, TokenTree, Span, Group, Delimiter};
 use std::collections::HashMap;
 
-use proc_macro::{TokenStream, TokenTree, Ident, Group, Span, Literal};
-use quote::quote;
+use quote::{format_ident, quote, ToTokens};
 
 #[derive(Debug, Clone)]
 struct Attribute {
@@ -51,7 +51,8 @@ struct ReactiveBlock {
 
 #[proc_macro]
 /// If you have syntax errors because of attributes, wrap the default value in parentheses.
-pub fn make_component(item: TokenStream) -> TokenStream {
+pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let item = TokenStream::from(item);
     let mut last_identifier = None;
     let mut item = item.into_iter();
     let name = item.next().unwrap();
@@ -201,11 +202,13 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                             },
                             "Reactive" => {
                                 let (variables, contents) = replace_variables(group.stream());
-                                reactive_blocks.push(ReactiveBlock {
-                                    variables,
-                                    contents,
-                                    prop_ident: None
-                                });
+                                if !contents.is_empty() && !variables.is_empty() {
+                                    reactive_blocks.push(ReactiveBlock {
+                                        variables,
+                                        contents,
+                                        prop_ident: None
+                                    });
+                                }
                             },
                             "Component" => {
                                 // Example syntax:
@@ -268,25 +271,28 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     let mut output = TokenStream::new();
 
     // Component struct
+    output.extend(quote!(
+        use rusalka::store::DerefGuardExt;
+        use rusalka::store::WritableStore;
+        use rusalka::store::Signal;
+    ));
 
-    output.extend(TokenStream::from(quote!(pub struct)));
+    output.extend(quote!(pub struct));
     output.extend(Some(TokenTree::Ident(name_ident.clone())));
 
     let mut component_struct_stream = TokenStream::new();
 
-    let mut i = 0;
-    for component in &components_used {
-
+    for (i, component) in components_used.iter().enumerate() {
         let ident = Ident::new(&format!("comp{}", i), component.name.span());
 
-        let mut midstream = TokenStream::from(quote!(: rusalka::));
+        let mut midstream = quote!(: rusalka::);
 
         match component.component_type {
             ComponentType::RealComponent => {
-                midstream.extend(TokenStream::from(quote!(SharedComponent<)));
+                midstream.extend(quote!(SharedComponent<));
             },
             ComponentType::Node => {
-                midstream.extend(TokenStream::from(quote!(SharedNodeComponent<)));
+                midstream.extend(quote!(SharedNodeComponent<));
             }
         }
 
@@ -295,15 +301,22 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         component_struct_stream.extend(Some(TokenTree::Ident(ident)));
         component_struct_stream.extend(midstream);
         component_struct_stream.extend(Some(TokenTree::Ident(component_name)));
-        component_struct_stream.extend(TokenStream::from(quote!(>,)));
+        component_struct_stream.extend(quote!(>,));
+    }
 
+    let mut i = 0u32;
+    for block in &reactive_blocks {
+        let ident = format_ident!("sub{}", i);
+        component_struct_stream.extend(quote!(
+            #ident: Box<dyn rusalka::store::StoreUnsubscribe>,
+        ));
         i+=1;
     }
 
     for variable in &reactive_variables {
         component_struct_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
         component_struct_stream.extend(TokenStream::from(quote!(:)));
-        component_struct_stream.extend(TokenStream::from(quote!(std::sync::Arc<std::sync::Mutex<rusalka::invalidator::Invalidator<)));
+        component_struct_stream.extend(TokenStream::from(quote!(std::sync::Arc<std::sync::Mutex<rusalka::store::Writable<)));
         component_struct_stream.extend(variable.type_.clone());
         component_struct_stream.extend(TokenStream::from(quote!(>>>)));
         component_struct_stream.extend(TokenStream::from(quote!(,)));
@@ -316,11 +329,13 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     // Attributes struct
 
     let attributes_ident = Ident::new(&format!("{str_name}Attributes"), name_ident.span());
+    let partial_attributes_ident = Ident::new(&format!("Partial{str_name}Attributes"), name_ident.span());
+    let reactive_attributes_ident = Ident::new(&format!("Reactive{str_name}Attributes"), name_ident.span());
 
     component_struct_stream.extend(TokenStream::from(quote!(attrs: )));
-    component_struct_stream.extend(Some(TokenTree::Ident(attributes_ident.clone())));
+    component_struct_stream.extend(Some(TokenTree::Ident(reactive_attributes_ident.clone())));
 
-    let component_struct_group = Group::new(proc_macro::Delimiter::Brace, component_struct_stream);
+    let component_struct_group = Group::new(proc_macro2::Delimiter::Brace, component_struct_stream);
     output.extend(Some(TokenTree::Group(component_struct_group)));
 
 
@@ -338,11 +353,10 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         attributes_struct_stream.extend(TokenStream::from(quote!(,)));
     }
 
-    output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, attributes_struct_stream))));
+    output.extend(Some(TokenTree::Group(Group::new(proc_macro2::Delimiter::Brace, attributes_struct_stream))));
 
     // partial attributes
 
-    let partial_attributes_ident = Ident::new(&format!("Partial{str_name}Attributes"), name_ident.span());
     output.extend(TokenStream::from(quote!(#[derive(Default)] pub struct)));
     output.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
     let mut attributes_default_struct_stream = TokenStream::new();
@@ -355,7 +369,23 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         attributes_default_struct_stream.extend(TokenStream::from(quote!(>,)));
     }
 
-    output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, attributes_default_struct_stream))));
+    output.extend(Some(TokenTree::Group(Group::new(proc_macro2::Delimiter::Brace, attributes_default_struct_stream))));
+
+    // reactive attributes
+
+    output.extend(TokenStream::from(quote!(#[derive(Default)] pub struct)));
+    output.extend(Some(TokenTree::Ident(reactive_attributes_ident.clone())));
+    let mut attributes_default_struct_stream = TokenStream::new();
+
+    for attribute in &attributes {
+        attributes_default_struct_stream.extend(TokenStream::from(quote!(pub)));
+        attributes_default_struct_stream.extend(Some(TokenTree::Ident(attribute.name.clone())));
+        attributes_default_struct_stream.extend(TokenStream::from(quote!(:  std::sync::Arc<std::sync::Mutex<rusalka::store::Writable<)));
+        attributes_default_struct_stream.extend(attribute.type_.clone());
+        attributes_default_struct_stream.extend(TokenStream::from(quote!(>>>,)));
+    }
+
+    output.extend(Some(TokenTree::Group(Group::new(proc_macro2::Delimiter::Brace, attributes_default_struct_stream))));
 
     // impl From<Attributes> for PartialAttributes
 
@@ -371,7 +401,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     let mut from_args = TokenStream::new();
     from_args.extend(TokenStream::from(quote!(attrs:)));
     from_args.extend(Some(TokenTree::Ident(attributes_ident.clone())));
-    from_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, from_args))));
+    from_stream.extend(Some(TokenTree::Group(Group::new(proc_macro2::Delimiter::Parenthesis, from_args))));
     from_stream.extend(TokenStream::from(quote!(-> Self)));
 
     let mut from_fn_stream = TokenStream::from(quote!(Self));
@@ -388,57 +418,91 @@ pub fn make_component(item: TokenStream) -> TokenStream {
         from_fn_stream_inner_inner.extend(TokenStream::from(quote!(attrs.)));
         from_fn_stream_inner_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
 
-        from_fn_stream_inner.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, from_fn_stream_inner_inner))));
+        from_fn_stream_inner.extend(Some(TokenTree::Group(Group::new(Delimiter::Parenthesis, from_fn_stream_inner_inner))));
     }
 
-    from_fn_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, from_fn_stream_inner))));
+    from_fn_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, from_fn_stream_inner))));
 
-    from_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, from_fn_stream))));
-    output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, from_stream))));
+    from_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, from_fn_stream))));
+    output.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, from_stream))));
+
+    // impl From<Attributes> for ReactiveAttributes
+
+    output.extend(TokenStream::from(quote!(impl From<)));
+    output.extend(Some(TokenTree::Ident(attributes_ident.clone())));
+    output.extend(TokenStream::from(quote!(> for)));
+    output.extend(Some(TokenTree::Ident(reactive_attributes_ident.clone())));
+
+    let mut from_stream = TokenStream::new();
+
+    from_stream.extend(TokenStream::from(quote!(fn from)));
+
+    let mut from_args = TokenStream::new();
+    from_args.extend(TokenStream::from(quote!(attrs:)));
+    from_args.extend(Some(TokenTree::Ident(attributes_ident.clone())));
+    from_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Parenthesis, from_args))));
+    from_stream.extend(TokenStream::from(quote!(-> Self)));
+
+    let mut from_fn_stream = TokenStream::from(quote!(Self));
+
+    let mut from_fn_stream_inner = TokenStream::new();
+
+    for attribute in &attributes {
+        let name = attribute.name.clone();
+        from_fn_stream_inner.extend(TokenStream::from(quote!(
+            #name : std::sync::Arc::new(std::sync::Mutex::new(rusalka::store::Writable::new(attrs.#name)))
+        )));
+    }
+
+    from_fn_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, from_fn_stream_inner))));
+
+    from_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, from_fn_stream))));
+    output.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, from_stream))));
 
     // Component impl
 
-    output.extend(TokenStream::from(quote!(impl rusalka::component::Component for)));
-    output.extend(Some(TokenTree::Ident(name_ident.clone())));
+    output.extend(TokenStream::from(quote!(impl rusalka::component::Component for #name_ident)));
 
     let mut component_impl_stream = TokenStream::new();
 
-    component_impl_stream.extend(TokenStream::from(quote!(type ComponentAttrs =)));
-    component_impl_stream.extend(Some(TokenTree::Ident(attributes_ident.clone())));
-    component_impl_stream.extend(TokenStream::from(quote!(;)));
-    component_impl_stream.extend(TokenStream::from(quote!(type PartialComponentAttrs =)));
-    component_impl_stream.extend(Some(TokenTree::Ident(partial_attributes_ident.clone())));
-    component_impl_stream.extend(TokenStream::from(quote!(;)));
-    component_impl_stream.extend(TokenStream::from(quote!(const UPDATE_LENGTH : usize =)));
-    component_impl_stream.extend(Some(TokenTree::Literal(Literal::usize_unsuffixed(f64::ceil((attributes.len() + reactive_variables.len()) as f64 / 32 as f64) as usize))));
-    component_impl_stream.extend(TokenStream::from(quote!(;)));
+    component_impl_stream.extend(TokenStream::from(quote!(
+        type ComponentAttrs = #attributes_ident;
+        type PartialComponentAttrs = #partial_attributes_ident;
+        type ReactiveComponentAttrs = #reactive_attributes_ident;
+    )));
 
     // fn new
 
-    component_impl_stream.extend(TokenStream::from(quote!(fn new(attrs: Self::ComponentAttrs, selfref: rusalka::WeakSharedComponent<Self>) -> Self)));
+    component_impl_stream.extend(TokenStream::from(quote!(
+        fn new(attrs: Self::ComponentAttrs, selfref: rusalka::WeakSharedComponent<Self>) -> Self
+    )));
 
     let mut new_stream = TokenStream::new();
 
-    for variable in &reactive_variables {
-        new_stream.extend(TokenStream::from(quote!(let)));
-        new_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
-        new_stream.extend(TokenStream::from(quote!(:)));
-        new_stream.extend(TokenStream::from(quote!(std::sync::Arc<std::sync::Mutex<rusalka::invalidator::Invalidator<)));
-        new_stream.extend(variable.type_.clone());
-        new_stream.extend(TokenStream::from(quote!(>>>)));
-        new_stream.extend(TokenStream::from(quote!(=)));
+    new_stream.extend(TokenStream::from(quote!(
+        let attrs: Self::ReactiveComponentAttrs = attrs.into();
+    )));
 
-        let mut invalidator = TokenStream::from(quote!(rusalka::invalidator::Invalidator::new));
+    for attribute in &attributes {
+        let name = attribute.name.clone();
+        new_stream.extend(TokenStream::from(quote!(
+            let #name = attrs.#name.clone();
+        )));
+    }
+
+    for variable in &reactive_variables {
+        let name = variable.name.clone();
+        let type_ = variable.type_.clone();
         let mut invalidator_inner = TokenStream::new();
         if let Some(def) = &variable.default {
             invalidator_inner.extend(replace_variables(def.clone()).1);
         } else {
             invalidator_inner.extend(TokenStream::from(quote!(Default::default())));
         }
-        invalidator.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, invalidator_inner))));
-        new_stream.extend(wrap_in_arc_mutex(invalidator));
-
-        new_stream.extend(TokenStream::from(quote!(;)));
+        new_stream.extend(TokenStream::from(quote!(
+            let #name : std::sync::Arc<std::sync::Mutex<rusalka::store::Writable< #type_ >>> =
+            std::sync::Arc::new(std::sync::Mutex::new(rusalka::store::Writable::new( #invalidator_inner )));
+        )));
     }
 
     new_stream.extend(main_logic);
@@ -466,20 +530,20 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 let mut component_new_stream = TokenStream::new();
         
                 // The following would allow not importing ComponentAttributes, but rust doesn't support it outside of nightly just yet
-                // component_new_stream.extend(Some(TokenTree::Punct(Punct::new('<', proc_macro::Spacing::Alone))));
+                // component_new_stream.extend(Some(TokenTree::Punct(Punct::new('<', Spacing::Alone))));
                 // component_new_stream.extend(Some(TokenTree::Ident(component_name.clone())));
                 // component_new_stream.extend(TokenStream::from(quote!(as Component>::ComponentAttrs)));
         
                 component_new_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("{}Attributes", component_name), component_name.span()))));
 
                 let (_reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
-                let components_attributes_group = Group::new(proc_macro::Delimiter::Brace, subcomponent_stream);
+                let components_attributes_group = Group::new(Delimiter::Brace, subcomponent_stream);
 
                 component_new_stream.extend(Some(TokenTree::Group(components_attributes_group)));
 
                 component_new_stream.extend(TokenStream::from(quote!(, cselfref.clone())));
         
-                let component_new_group = Group::new(proc_macro::Delimiter::Parenthesis, component_new_stream);
+                let component_new_group = Group::new(Delimiter::Parenthesis, component_new_stream);
         
                 component_stream.extend(Some(TokenTree::Group(component_new_group)));
         
@@ -487,27 +551,44 @@ pub fn make_component(item: TokenStream) -> TokenStream {
             },
             ComponentType::Node => {
                 let (_reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
-                let node_group = Group::new(proc_macro::Delimiter::Brace, subcomponent_stream);
+                let node_group = Group::new(Delimiter::Brace, subcomponent_stream);
                 component_stream.extend(Some(TokenTree::Group(node_group)));
                 new_returnvalue_stream.extend(wrap_in_arcrwlock(component_stream));
             }
         }
-        new_returnvalue_stream.extend(TokenStream::from(quote!(,)));
+        new_returnvalue_stream.extend(quote!(,));
 
         i+=1;
     }
 
-    new_returnvalue_stream.extend(TokenStream::from(quote!(attrs, selfref,)));
+    new_returnvalue_stream.extend(quote!(attrs, selfref,));
+
+    let mut i = 0u32;
+    for reactive_block in &reactive_blocks {
+        let ident = format_ident!("sub{}", i);
+        let content = &reactive_block.contents;
+        let variables = &reactive_block.variables;
+        new_returnvalue_stream.extend(quote!(
+            #ident: {
+                #(let #variables = #variables.clone();)*
+                [#(#variables.clone().lock().unwrap()),*].subscribe(Box::new(move || {
+                    #(let #variables = #variables.clone();)*
+                    #content
+                }))
+            },
+        ));
+        i+=1;
+    }
 
     for variable in &reactive_variables {
         new_returnvalue_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
-        new_returnvalue_stream.extend(TokenStream::from(quote!(,)));
+        new_returnvalue_stream.extend(quote!(,));
     }
 
-    let new_returnvalue_group = Group::new(proc_macro::Delimiter::Brace, new_returnvalue_stream);
+    let new_returnvalue_group = Group::new(Delimiter::Brace, new_returnvalue_stream);
     new_stream.extend(Some(TokenTree::Group(new_returnvalue_group)));
 
-    new_stream.extend(TokenStream::from(quote!(;)));
+    new_stream.extend(quote!(;));
 
     i = 0;
     for component in &components_used {
@@ -551,17 +632,15 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
             inner_callback_stream.extend(replace_variables(event_listener.callback.clone().stream()).1);
 
-            inner_callback_stream.extend(TokenStream::from(quote!(this.tick(None);)));
-
-            let callback_group = Group::new(proc_macro::Delimiter::Brace, inner_callback_stream);
+            let callback_group = Group::new(Delimiter::Brace, inner_callback_stream);
 
             callback_stream.extend(Some(TokenTree::Group(callback_group)));
 
-            let callback_group = Group::new(proc_macro::Delimiter::Parenthesis, callback_stream);
+            let callback_group = Group::new(Delimiter::Parenthesis, callback_stream);
 
             box_stream.extend(Some(TokenTree::Group(callback_group)));
 
-            let box_group = Group::new(proc_macro::Delimiter::Parenthesis, box_stream);
+            let box_group = Group::new(Delimiter::Parenthesis, box_stream);
 
             new_stream.extend(Some(TokenTree::Group(box_group)));
 
@@ -572,7 +651,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     new_stream.extend(TokenStream::from(quote!(this)));
 
-    let new_group = Group::new(proc_macro::Delimiter::Brace, new_stream);
+    let new_group = Group::new(Delimiter::Brace, new_stream);
     component_impl_stream.extend(Some(TokenTree::Group(new_group)));
 
     // fn set
@@ -581,14 +660,13 @@ pub fn make_component(item: TokenStream) -> TokenStream {
     let mut set_stream = TokenStream::new();
 
     if attributes.len() > 0 {
-        set_stream.extend(TokenStream::from(quote!(let mut to_update = [0; Self::UPDATE_LENGTH];)));
         for (i, attribute) in attributes.iter().enumerate() {
             set_stream.extend(TokenStream::from(quote!(if let Some)));
 
             let mut some_inner = TokenStream::new();
             some_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
 
-            set_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, some_inner))));
+            set_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Parenthesis, some_inner))));
 
             set_stream.extend(TokenStream::from(quote!(= attrs.)));
             set_stream.extend(Some(TokenTree::Ident(attribute.name.clone())));
@@ -597,31 +675,25 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
             set_stream_inner.extend(TokenStream::from(quote!(self.attrs.)));
             set_stream_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
-            set_stream_inner.extend(TokenStream::from(quote!(=)));
-            set_stream_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
-            set_stream_inner.extend(TokenStream::from(quote!(; to_update)));
+            set_stream_inner.extend(TokenStream::from(quote!(.lock().unwrap().set)));
 
-            let mut to_update_stream = TokenStream::new();
+            let mut set_stream_inner_inner = TokenStream::new();
 
-            to_update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i as u32 / 32))));
+            set_stream_inner_inner.extend(Some(TokenTree::Ident(attribute.name.clone())));
 
-            set_stream_inner.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, to_update_stream))));
+            set_stream_inner.extend(Some(TokenTree::Group(Group::new(Delimiter::Parenthesis, set_stream_inner_inner))));
+            set_stream_inner.extend(TokenStream::from(quote!(;)));
 
-            set_stream_inner.extend(TokenStream::from(quote!(|= )));
-            set_stream_inner.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(1 << (i as u32 % 32)))));
-
-            set_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, set_stream_inner))));
+            set_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, set_stream_inner))));
         }
-
-        set_stream.extend(TokenStream::from(quote!(if to_update.into_iter().reduce(|a,b| a+b).unwrap() != 0 { self.tick(Some(&to_update)); })));
     }
 
 
-    component_impl_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, set_stream))));
+    component_impl_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, set_stream))));
 
     // fn get
 
-    component_impl_stream.extend(TokenStream::from(quote!(fn get(&self) -> &Self::ComponentAttrs { &self.attrs })));
+    component_impl_stream.extend(TokenStream::from(quote!(fn get(&self) -> &Self::ReactiveComponentAttrs { &self.attrs })));
 
     // fn mount
 
@@ -652,7 +724,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                         node_insert_self_stream.extend(Some(TokenTree::Ident(parent_ident)));
                         node_insert_self_stream.extend(TokenStream::from(quote!(.clone())));
 
-                        let node_insert_self_group = Group::new(proc_macro::Delimiter::Brace, node_insert_self_stream);
+                        let node_insert_self_group = Group::new(Delimiter::Brace, node_insert_self_stream);
                         component_mount_stream.extend(TokenStream::from(quote!(&)));
                         component_mount_stream.extend(Some(TokenTree::Group(node_insert_self_group)));
                     },
@@ -663,7 +735,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 component_mount_stream.extend(TokenStream::from(quote!(,)));
                 component_mount_stream.extend(TokenStream::from(quote!(before)));
         
-                let component_mount_group = Group::new(proc_macro::Delimiter::Parenthesis, component_mount_stream);
+                let component_mount_group = Group::new(Delimiter::Parenthesis, component_mount_stream);
         
                 mount_stream.extend(Some(TokenTree::Group(component_mount_group)));
 
@@ -686,7 +758,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                         node_insert_self_stream.extend(Some(TokenTree::Ident(parent_ident)));
                         node_insert_self_stream.extend(TokenStream::from(quote!(.clone())));
 
-                        let node_insert_self_group = Group::new(proc_macro::Delimiter::Brace, node_insert_self_stream);
+                        let node_insert_self_group = Group::new(Delimiter::Brace, node_insert_self_stream);
                         node_insert_stream.extend(TokenStream::from(quote!(&)));
                         node_insert_stream.extend(Some(TokenTree::Group(node_insert_self_group)));
                     },
@@ -704,13 +776,13 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 node_insert_self_stream.extend(Some(TokenTree::Ident(ident)));
                 node_insert_self_stream.extend(TokenStream::from(quote!(.clone())));
 
-                let node_insert_self_group = Group::new(proc_macro::Delimiter::Brace, node_insert_self_stream);
+                let node_insert_self_group = Group::new(Delimiter::Brace, node_insert_self_stream);
                 node_insert_stream.extend(Some(TokenTree::Group(node_insert_self_group)));
 
                 node_insert_stream.extend(TokenStream::from(quote!(,)));
                 node_insert_stream.extend(TokenStream::from(quote!(before)));
 
-                node_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Parenthesis, node_insert_stream))));
+                node_stream.extend(Some(TokenTree::Group(Group::new(Delimiter::Parenthesis, node_insert_stream))));
 
                 mount_stream.extend(node_stream);
                 mount_stream.extend(TokenStream::from(quote!(;)));
@@ -719,7 +791,7 @@ pub fn make_component(item: TokenStream) -> TokenStream {
 
     }
 
-    let mount_group = Group::new(proc_macro::Delimiter::Brace, mount_stream);
+    let mount_group = Group::new(Delimiter::Brace, mount_stream);
     component_impl_stream.extend(Some(TokenTree::Group(mount_group)));
 
     // fn unmount
@@ -755,219 +827,29 @@ pub fn make_component(item: TokenStream) -> TokenStream {
                 node_detach_self_stream.extend(Some(TokenTree::Ident(ident)));
                 node_detach_self_stream.extend(TokenStream::from(quote!(.clone())));
 
-                let node_detach_self_group = Group::new(proc_macro::Delimiter::Brace, node_detach_self_stream);
+                let node_detach_self_group = Group::new(Delimiter::Brace, node_detach_self_stream);
                 node_detach_stream.extend(Some(TokenTree::Group(node_detach_self_group)));
 
-                let node_detach_group = Group::new(proc_macro::Delimiter::Parenthesis, node_detach_stream);
+                let node_detach_group = Group::new(Delimiter::Parenthesis, node_detach_stream);
                 unmount_stream.extend(Some(TokenTree::Group(node_detach_group)));
                 unmount_stream.extend(TokenStream::from(quote!(;)));
             }
         }
     }
 
-    let unmount_group = Group::new(proc_macro::Delimiter::Brace, unmount_stream);
+    let unmount_group = Group::new(Delimiter::Brace, unmount_stream);
     component_impl_stream.extend(Some(TokenTree::Group(unmount_group)));
 
-    // fn update
-
-    let mut all_variables = Vec::new();
-    all_variables.extend(attributes.clone());
-    all_variables.extend(reactive_variables.clone());
-
-    component_impl_stream.extend(TokenStream::from(quote!(fn update(&self, bitmap: &[u32]))));
-    let mut update_stream = TokenStream::new();
-    update_stream.extend(TokenStream::from(quote!(
-        self.check_update(bitmap);
-        let attrs = &self.attrs;
-    )));
-
-    for variable in &reactive_variables {
-        update_stream.extend(TokenStream::from(quote!(let)));
-        update_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
-        update_stream.extend(TokenStream::from(quote!(=)));
-        update_stream.extend(TokenStream::from(quote!(&self.)));
-        update_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
-        update_stream.extend(TokenStream::from(quote!(;)));
-    }
-
-    'block: for block in &reactive_blocks {
-        let mut keys: Vec<u32> = vec![0; all_variables.len() / 32 + 1];
-        for variable in &block.variables {
-            let index = all_variables.iter().position(|x| x.name.to_string() == variable.to_string());
-            if let None = index {
-                eprintln!("Warning: variable {} not found in component {}", variable, str_name);
-                continue 'block;
-            }
-            let index = index.unwrap();
-            let array_offset = index / 32;
-            let num_offset = index % 32;
-            *keys.get_mut(array_offset).unwrap() |= 1 << num_offset;
-        }
-        if keys.iter().all(|x| *x == 0) {
-            continue 'block;
-        }
-        update_stream.extend(TokenStream::from(quote!(if)));
-
-        let mut i = 0;
-        for key in keys {
-            if i > 0 {
-                update_stream.extend(TokenStream::from(quote!(||)));
-            }
-            update_stream.extend(TokenStream::from(quote!(bitmap)));
-            let mut ifgroup_stream = TokenStream::new();
-            // update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(key))));
-            ifgroup_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i))));
-            update_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, ifgroup_stream))));
-            update_stream.extend(TokenStream::from(quote!(&)));
-            update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(key))));
-            update_stream.extend(TokenStream::from(quote!(!= 0)));
-            i += 1;
-        }
-
-        let inner_group = Group::new(proc_macro::Delimiter::Brace, block.contents.clone());
-        update_stream.extend(Some(TokenTree::Group(inner_group)));
-    }
-
-    let mut component_index = 0;
-    'block: for component in &components_used {
-        for (prop, block) in &component.reactive_props {
-            let mut keys: Vec<u32> = vec![0; all_variables.len() / 32 + 1];
-            for variable in &block.variables {
-                let index = all_variables.iter().position(|x| x.name.to_string() == variable.to_string());
-                if let None = index {
-                    eprintln!("Warning: variable {} not found in component {}", variable, str_name);
-                    continue 'block;
-                }
-                let index = index.unwrap();
-                let array_offset = index / 32;
-                let num_offset = index % 32;
-                *keys.get_mut(array_offset).unwrap() |= 1 << num_offset;
-            }
-            update_stream.extend(TokenStream::from(quote!(if)));
-    
-            let mut i = 0;
-            for key in keys {
-                if i > 0 {
-                    update_stream.extend(TokenStream::from(quote!(||)));
-                }
-                update_stream.extend(TokenStream::from(quote!(bitmap)));
-                let mut ifgroup_stream = TokenStream::new();
-                // update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(key))));
-                ifgroup_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(i))));
-                update_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, ifgroup_stream))));
-                update_stream.extend(TokenStream::from(quote!(&)));
-                update_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(key))));
-                update_stream.extend(TokenStream::from(quote!(!= 0)));
-                i += 1;
-            }
-
-            let mut inner_stream = TokenStream::new();
-
-            match component.component_type {
-                ComponentType::Node => {
-                    inner_stream.extend(TokenStream::from(quote!(self.)));
-                    inner_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("comp{}", component_index), Span::call_site()))));
-                    inner_stream.extend(TokenStream::from(quote!(.write().unwrap().)));
-                    inner_stream.extend(Some(TokenTree::Ident(block.prop_ident.clone().unwrap())));
-                    inner_stream.extend(TokenStream::from(quote!( = )));
-                    inner_stream.extend(replace_variables(block.contents.clone()).1);
-                },
-                ComponentType::RealComponent => {
-                    inner_stream.extend(TokenStream::from(quote!(self.)));
-                    inner_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("comp{}", component_index), Span::call_site()))));
-                    inner_stream.extend(TokenStream::from(quote!(.lock().unwrap().set)));
-
-                    let mut component_set_stream = TokenStream::new();
-
-                    component_set_stream.extend(Some(TokenTree::Ident(block.prop_ident.clone().unwrap())));
-                    component_set_stream.extend(TokenStream::from(quote!(: Option::Some)));
-
-                    let component_set_some_stream = replace_variables(block.contents.clone()).1;
-
-                    let component_set_group = Group::new(proc_macro::Delimiter::Parenthesis, component_set_some_stream);
-                    component_set_stream.extend(Some(TokenTree::Group(component_set_group)));
-
-                    component_set_stream.extend(TokenStream::from(quote!(, ..Default::default())));
-
-                    let component_set_group = Group::new(proc_macro::Delimiter::Brace, component_set_stream);
-                    let mut component_set_outer_stream = TokenStream::new();
-
-                    let name = component.name.clone().to_string();
-
-                    component_set_outer_stream.extend(Some(TokenTree::Ident(Ident::new(&format!("Partial{}Attributes", name), component.name.span()))));
-
-                    component_set_outer_stream.extend(Some(TokenTree::Group(component_set_group)));
-                    let component_set_outer_group = Group::new(proc_macro::Delimiter::Parenthesis, component_set_outer_stream);
-
-                    inner_stream.extend(Some(TokenTree::Group(component_set_outer_group)));
-                }
-            }
-
-            let inner_group = Group::new(proc_macro::Delimiter::Brace, inner_stream);
-            update_stream.extend(Some(TokenTree::Group(inner_group)));
-        }
-        component_index += 1;
-    }
-
-    let update_group = Group::new(proc_macro::Delimiter::Brace, update_stream);
-    component_impl_stream.extend(Some(TokenTree::Group(update_group)));
-
-
-    // fn tick
-
-    component_impl_stream.extend(TokenStream::from(quote!(fn tick(&mut self, inbitmap: Option<&[u32]>))));
-
-    let mut tick_stream = TokenStream::new();
-
-    tick_stream.extend(TokenStream::from(quote!(
-        let mut bitmap = [0; Self::UPDATE_LENGTH];
-        if let Some(inbitmap) = inbitmap {
-            bitmap.clone_from_slice(inbitmap);
-        }
-        self.check_update(&bitmap);
-    )));
-
-    let mut i = attributes.len() as u32;
-    for variable in &reactive_variables {
-        tick_stream.extend(TokenStream::from(quote!(if self.)));
-        tick_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
-        tick_stream.extend(TokenStream::from(quote!(.lock().unwrap().invalidated())));
-
-        let mut if_stream = TokenStream::new();
-
-        let array_offset = i / 32;
-        let num_offset = i % 32;
-
-        if_stream.extend(TokenStream::from(quote!(bitmap)));
-        let mut ifgroup_stream = TokenStream::new();
-        ifgroup_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(array_offset))));
-        if_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Bracket, ifgroup_stream))));
-        if_stream.extend(TokenStream::from(quote!(|= )));
-        if_stream.extend(Some(TokenTree::Literal(Literal::u32_unsuffixed(1 << num_offset))));
-
-        tick_stream.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, if_stream))));
-        i += 1;
-    }
-
-    tick_stream.extend(TokenStream::from(quote!(
-        if bitmap.into_iter().reduce(|a, b| a + b).unwrap() != 0 {
-            self.update(&bitmap);
-        }
-    )));
-
-    let tick_group = Group::new(proc_macro::Delimiter::Brace, tick_stream);
-    component_impl_stream.extend(Some(TokenTree::Group(tick_group)));
-
-    output.extend(Some(TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, component_impl_stream))));
+    output.extend(Some(TokenTree::Group(Group::new(Delimiter::Brace, component_impl_stream))));
 
     println!("{}", output.to_string());
 
     println!();
 
-    output
+    output.into()
 }
 
-/// Replaces $variable with **variable.lock().unwrap()
+/// Replaces $variable with **variable.lock().unwrap().guard()
 /// Returns the found variables as well as tokenstream with replaced variables
 /// Returned vec is sorted and deduplicated
 fn replace_variables(stream: TokenStream) -> (Vec<Ident>, TokenStream) {
@@ -987,7 +869,7 @@ fn replace_variables(stream: TokenStream) -> (Vec<Ident>, TokenStream) {
                 idents.push(ident.clone());
                 output.extend(TokenStream::from(quote!(**)));
                 output.extend(Some(TokenTree::Ident(ident.clone())));
-                output.extend(TokenStream::from(quote!(.lock().unwrap())));
+                output.extend(TokenStream::from(quote!(.lock().unwrap().guard())));
             },
             TokenTree::Group(group) => {
                 let group_delim = group.delimiter();
@@ -1015,7 +897,7 @@ fn wrap_in_arc_mutex(stream: TokenStream) -> TokenStream {
 
     output.extend(TokenStream::from(quote!(std::sync::Arc::new)));
 
-    let mutex_group = Group::new(proc_macro::Delimiter::Parenthesis, stream);
+    let mutex_group = Group::new(Delimiter::Parenthesis, stream);
 
     let mut mutex_stream = TokenStream::new();
 
@@ -1023,7 +905,7 @@ fn wrap_in_arc_mutex(stream: TokenStream) -> TokenStream {
 
     mutex_stream.extend(Some(TokenTree::Group(mutex_group)));
 
-    let arc_group = Group::new(proc_macro::Delimiter::Parenthesis, mutex_stream);
+    let arc_group = Group::new(Delimiter::Parenthesis, mutex_stream);
 
     output.extend(Some(TokenTree::Group(arc_group)));
 
@@ -1035,7 +917,7 @@ fn wrap_in_arcmutex_cyclic(stream: TokenStream) -> TokenStream {
 
     output.extend(TokenStream::from(quote!(std::sync::Arc::new_cyclic)));
 
-    let mutex_group = Group::new(proc_macro::Delimiter::Parenthesis, stream);
+    let mutex_group = Group::new(Delimiter::Parenthesis, stream);
 
     let mut mutex_stream = TokenStream::new();
 
@@ -1045,7 +927,7 @@ fn wrap_in_arcmutex_cyclic(stream: TokenStream) -> TokenStream {
 
     mutex_stream.extend(Some(TokenTree::Group(mutex_group)));
 
-    let arc_group = Group::new(proc_macro::Delimiter::Parenthesis, mutex_stream);
+    let arc_group = Group::new(Delimiter::Parenthesis, mutex_stream);
 
     output.extend(Some(TokenTree::Group(arc_group)));
 
@@ -1057,7 +939,7 @@ fn wrap_in_arcrwlock(stream: TokenStream) -> TokenStream {
 
     output.extend(TokenStream::from(quote!(std::sync::Arc::new)));
 
-    let mutex_group = Group::new(proc_macro::Delimiter::Parenthesis, stream);
+    let mutex_group = Group::new(Delimiter::Parenthesis, stream);
 
     let mut rwlock_stream = TokenStream::new();
 
@@ -1065,7 +947,7 @@ fn wrap_in_arcrwlock(stream: TokenStream) -> TokenStream {
 
     rwlock_stream.extend(Some(TokenTree::Group(mutex_group)));
 
-    let arc_group = Group::new(proc_macro::Delimiter::Parenthesis, rwlock_stream);
+    let arc_group = Group::new(Delimiter::Parenthesis, rwlock_stream);
 
     output.extend(Some(TokenTree::Group(arc_group)));
 
