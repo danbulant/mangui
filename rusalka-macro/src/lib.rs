@@ -304,27 +304,22 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
         component_struct_stream.extend(quote!(>,));
     }
 
-    let mut i = 0u32;
-    for block in &reactive_blocks {
-        let ident = format_ident!("sub{}", i);
-        component_struct_stream.extend(quote!(
-            #ident: Box<dyn rusalka::store::StoreUnsubscribe>,
-        ));
-        i+=1;
-    }
+    component_struct_stream.extend(quote!(
+        sub: Vec<Box<dyn rusalka::store::StoreUnsubscribe>>,
+    ));
 
     for variable in &reactive_variables {
         component_struct_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
-        component_struct_stream.extend(TokenStream::from(quote!(:)));
-        component_struct_stream.extend(TokenStream::from(quote!(std::sync::Arc<rusalka::store::Writable<)));
+        component_struct_stream.extend(quote!(:));
+        component_struct_stream.extend(quote!(std::sync::Arc<rusalka::store::Writable<));
         component_struct_stream.extend(variable.type_.clone());
-        component_struct_stream.extend(TokenStream::from(quote!(>>)));
-        component_struct_stream.extend(TokenStream::from(quote!(,)));
+        component_struct_stream.extend(quote!(>>));
+        component_struct_stream.extend(quote!(,));
     }
 
     // selfref
 
-    component_struct_stream.extend(TokenStream::from(quote!(selfref: rusalka::WeakSharedComponent<Self>,)));
+    component_struct_stream.extend(quote!(selfref: rusalka::WeakSharedComponent<Self>,));
 
     // Attributes struct
 
@@ -332,7 +327,7 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let partial_attributes_ident = Ident::new(&format!("Partial{str_name}Attributes"), name_ident.span());
     let reactive_attributes_ident = Ident::new(&format!("Reactive{str_name}Attributes"), name_ident.span());
 
-    component_struct_stream.extend(TokenStream::from(quote!(attrs: )));
+    component_struct_stream.extend(quote!(attrs: ));
     component_struct_stream.extend(Some(TokenTree::Ident(reactive_attributes_ident.clone())));
 
     let component_struct_group = Group::new(proc_macro2::Delimiter::Brace, component_struct_stream);
@@ -342,15 +337,15 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     // attributes
 
     let mut attributes_struct_stream = TokenStream::new();
-    output.extend(TokenStream::from(quote!(#[derive(Default)] pub struct)));
+    output.extend(quote!(#[derive(Default)] pub struct));
     output.extend(Some(TokenTree::Ident(attributes_ident.clone())));
 
     for attribute in &attributes {
-        attributes_struct_stream.extend(TokenStream::from(quote!(pub)));
+        attributes_struct_stream.extend(quote!(pub));
         attributes_struct_stream.extend(Some(TokenTree::Ident(attribute.name.clone())));
-        attributes_struct_stream.extend(TokenStream::from(quote!(:)));
+        attributes_struct_stream.extend(quote!(:));
         attributes_struct_stream.extend(attribute.type_.clone());
-        attributes_struct_stream.extend(TokenStream::from(quote!(,)));
+        attributes_struct_stream.extend(quote!(,));
     }
 
     output.extend(Some(TokenTree::Group(Group::new(proc_macro2::Delimiter::Brace, attributes_struct_stream))));
@@ -511,7 +506,7 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     let mut new_returnvalue_stream = TokenStream::new();
 
-    i = 0;
+    let mut i = 0;
     for component in &components_used {
         let ident = Ident::new(&format!("comp{}", i), component.name.span());
         let component_name = component.name.clone();
@@ -561,17 +556,17 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
         i+=1;
     }
 
-    new_returnvalue_stream.extend(quote!(attrs, selfref,));
+    new_returnvalue_stream.extend(quote!(attrs, selfref, sub: vec!));
 
+    let mut sub_stream = TokenStream::new();
     let mut i = 0u32;
     for reactive_block in &reactive_blocks {
-        let ident = format_ident!("sub{}", i);
         let content = &reactive_block.contents;
         let variables = &reactive_block.variables;
         let vecvariables = reactive_block.variables.iter().map(|v| format_ident!("vec{}", v));
         let vecvariables2 = reactive_block.variables.iter().map(|v| format_ident!("vec{}", v));
-        new_returnvalue_stream.extend(quote!(
-            #ident: {
+        sub_stream.extend(quote!(
+            {
                 #(let #variables = #variables.clone();)*
                 #(let #vecvariables = #variables.clone();)*
                 let vec = [#(#vecvariables2),*];
@@ -585,6 +580,8 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
         ));
         i+=1;
     }
+
+    new_returnvalue_stream.extend(quote!([ #sub_stream ],));
 
     for variable in &reactive_variables {
         new_returnvalue_stream.extend(Some(TokenTree::Ident(variable.name.clone())));
