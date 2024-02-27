@@ -51,6 +51,23 @@ pub struct Image {
     pub parent: Option<WeakNode>
 }
 
+impl Image {
+    pub fn new(image: ImageLoad) -> Image {
+        Image {
+            image,
+            ..Default::default()
+        }
+    }
+    pub fn radius(mut self, radius: f32) -> Image {
+        self.radius = radius;
+        self
+    }
+    pub fn style(mut self, style: Style) -> Image {
+        self.style = style;
+        self
+    }
+}
+
 lazy_static::lazy_static! {
     pub static ref IMAGES_TO_UNLOAD: Mutex<Vec<ImageId>> = Mutex::new(Vec::new());
 }
@@ -65,6 +82,12 @@ impl Node for Image {
     }
 
     fn prepare_render(&mut self, context: &mut RenderContext) {
+        if let Ok(mut images_to_unload) = IMAGES_TO_UNLOAD.try_lock() {
+            for image in images_to_unload.iter() {
+                context.canvas.delete_image(*image);
+            }
+            images_to_unload.clear();
+        }
         match &self.image {
             ImageLoad::LoadFile(_, _) => {
                 let image = mem::replace(&mut self.image, ImageLoad::Error(ErrorKind::UnknownError));

@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::sync::{Arc, RwLock};
 use crate::{events::handler::EventHandlerDatabase, SharedNode, WeakNode, FONT_SYSTEM};
 use super::{text_render_cache::RENDER_CACHE, Node, NodeChildren, Style, MeasureContext, RenderContext};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Stretch};
@@ -15,6 +16,32 @@ pub struct Text {
     pub metrics: Metrics,
     pub buffer: Option<Buffer>,
     pub paint: Paint
+}
+
+impl Text {
+    pub fn new(text: String, metrics: Metrics) -> Text {
+        Text {
+            text,
+            metrics,
+            ..Default::default()
+        }
+    }
+    pub fn text(mut self, text: String) -> Self {
+        self.text = text;
+        self
+    }
+    pub fn metrics(mut self, metrics: Metrics) -> Self {
+        self.metrics = metrics;
+        self
+    }
+    pub fn paint(mut self, paint: Paint) -> Self {
+        self.paint = paint;
+        self
+    }
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
 }
 
 impl Node for Text {

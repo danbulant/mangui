@@ -1,11 +1,12 @@
 pub mod layout;
+pub mod empty;
 pub mod primitives;
 pub mod image;
 pub mod text;
 pub mod text_render_cache;
 
 use std::fmt::Debug;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use femtovg::{Canvas, Color};
 use crate::events::Location;
 use crate::events::handler::InnerEventHandlerDataset;
@@ -171,8 +172,10 @@ pub trait Node: Debug {
     /// Add a child to the node at the given index. If the node does not support children, returns error ChildrenNotSupported.
     /// Adding the same child multiple times or to multiple parents is not supported and will result in undefined behavior.
     /// Arc<RwLock<Node>> does **NOT** mean that it's safe to add the same node multiple times.
+    /// 
+    /// Note that this doesn't set the parent of the child. You need to do that manually.
     ///
-    /// Implementors can check [`Node::has_child`] to check if the child already exists. Default implementation thros [`ChildAddError::ChildrenNotSupported`].
+    /// Implementors can check [`Node::has_child`] to check if the child already exists. Default implementation throws [`ChildAddError::ChildrenNotSupported`].
     /// Adding a child that already exists should move that child to the new position.
     fn add_child_at(&mut self, _child: SharedNode, _index: usize) -> Result<(), ChildAddError> { Err(ChildAddError::ChildrenNotSupported) }
 
@@ -264,6 +267,16 @@ pub trait Node: Debug {
     /// Is an optional function instead of another trait because of missing support for trait upcasting
     // TODO: When rust supports trait upcasting, make this a trait
     fn resize(&mut self, _width: f32, _height: f32) {}
+}
+
+pub trait ToShared {
+    fn to_shared(self) -> SharedNode;
+}
+
+impl<T: Node + 'static> ToShared for T {
+    fn to_shared(self) -> SharedNode {
+        Arc::new(RwLock::new(self))
+    }
 }
 
 /// Runs event handlers for the given path

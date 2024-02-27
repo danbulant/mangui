@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::sync::{Arc, RwLock};
 use crate::{nodes::{Node, NodeChildren, Style}, events::handler::EventHandlerDatabase, WeakNode, SharedNode};
 use taffy::style::Dimension;
 
@@ -19,6 +20,19 @@ impl Layout {
             events: EventHandlerDatabase::default(),
             parent: None
         }
+    }
+    pub fn empty() -> Layout {
+        Layout {
+            style: Style::default(),
+            children: NodeChildren::default(),
+            events: EventHandlerDatabase::default(),
+            parent: None
+        }
+    }
+    
+    pub fn style(mut self, style: Style) -> Layout {
+        self.style = style;
+        self
     }
 }
 

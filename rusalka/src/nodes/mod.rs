@@ -9,6 +9,9 @@ pub fn detach(node: &SharedNode) {
 }
 
 pub fn insert(parent: &SharedNode, node: &SharedNode, before: Option<&SharedNode>) {
+    if node.read().unwrap().parent().is_some() && !Arc::ptr_eq(&node.read().unwrap().parent().unwrap(), parent) {
+        detach(node);
+    }
     match before {
         Some(before) => {
             parent.write().unwrap().add_child_before(node.clone(), before).unwrap();

@@ -37,6 +37,7 @@ pub use cosmic_text;
 
 pub type CurrentRenderer = OpenGl;
 pub type SharedNode = Arc<RwLock<dyn Node>>;
+pub type WeakSharedNode = Weak<RwLock<dyn Node>>;
 type WeakNode = Weak<RwLock<dyn Node>>;
 type NodePtr = Option<Vec<WeakNode>>;
 type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::tree::NodeId>;
