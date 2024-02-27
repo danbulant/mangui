@@ -28,6 +28,7 @@ struct EventListener {
 
 #[derive(Debug)]
 enum ComponentType {
+    SlotDefinition,
     RealComponent,
     Node
 }
@@ -293,15 +294,24 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
             },
             ComponentType::Node => {
                 midstream.extend(quote!(SharedNodeComponent<));
+            },
+            ComponentType::SlotDefinition => {
+                midstream.extend(quote!(SharedSlot));
             }
         }
+        
+        match component.component_type {
+            ComponentType::RealComponent | ComponentType::Node => {
+                let component_name = component.name.clone();
+        
+                component_struct_stream.extend(Some(TokenTree::Ident(ident)));
+                component_struct_stream.extend(midstream);
+                component_struct_stream.extend(Some(TokenTree::Ident(component_name)));
+                component_struct_stream.extend(quote!(>,));
+            },
+            ComponentType::SlotDefinition => {}
+        }
 
-        let component_name = component.name.clone();
-
-        component_struct_stream.extend(Some(TokenTree::Ident(ident)));
-        component_struct_stream.extend(midstream);
-        component_struct_stream.extend(Some(TokenTree::Ident(component_name)));
-        component_struct_stream.extend(quote!(>,));
     }
 
     component_struct_stream.extend(quote!(
@@ -515,10 +525,10 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
         let mut component_stream = TokenStream::new();
 
-        component_stream.extend(Some(TokenTree::Ident(component_name.clone())));
-
         match component.component_type {
             ComponentType::RealComponent => {
+                component_stream.extend(Some(TokenTree::Ident(component_name.clone())));
+
                 component_stream.extend(quote!(::new));
 
                 let mut component_new_stream = TokenStream::new();
@@ -544,10 +554,15 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
                 new_returnvalue_stream.extend(wrap_in_arcmutex_cyclic(component_stream));
             },
             ComponentType::Node => {
+                component_stream.extend(Some(TokenTree::Ident(component_name.clone())));
+
                 let (_reactive_variables, subcomponent_stream) = replace_variables(component.contents.clone());
                 let node_group = Group::new(Delimiter::Brace, subcomponent_stream);
                 component_stream.extend(Some(TokenTree::Group(node_group)));
                 new_returnvalue_stream.extend(wrap_in_arcrwlock(component_stream));
+            },
+            ComponentType::SlotDefinition => {
+                component_stream.extend(quote!(Arc::new(Mutex::new(None))));
             }
         }
         new_returnvalue_stream.extend(quote!(,));
@@ -594,6 +609,8 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     for component in &components_used {
         match component.component_type {
             ComponentType::RealComponent => continue,
+            // currently just ignore those, in the future it should probably be an error.
+            ComponentType::SlotDefinition => continue,
             ComponentType::Node => {}
         };
         for event_listener in &component.event_listeners {
@@ -706,6 +723,7 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
         let ident = Ident::new(&format!("comp{}", i), component.name.span());
 
         match component.component_type {
+            ComponentType::SlotDefinition => continue,
             ComponentType::RealComponent => {
                 // mount
                 mount_stream.extend(quote!(self.));
@@ -805,6 +823,7 @@ pub fn make_component(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
         let ident = Ident::new(&format!("comp{}", i), component.name.span());
 
         match component.component_type {
+            ComponentType::SlotDefinition => continue,
             ComponentType::RealComponent => {
                 let mut component_stream = TokenStream::new();
         

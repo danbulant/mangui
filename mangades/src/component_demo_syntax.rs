@@ -72,10 +72,11 @@ make_component!(
             $|event| {
                 match event.event {
                     mangui::events::InnerEvent::MouseDown(_) => {
-                        $test_ = true;
+                        let test_ = &mut $test_;
+                        *test_ = !*test_;
                     },
                     mangui::events::InnerEvent::MouseUp(_) => {
-                        $test_ = false;
+                        // $test_ = false;
                     },
                     _ => {}
                 }

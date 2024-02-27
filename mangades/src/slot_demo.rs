@@ -1,12 +1,14 @@
 use std::sync::{Arc, Mutex, RwLock};
 use mangui::nodes::layout::Layout;
 use mangui::nodes::primitives::Rectangle;
+use mangui::WeakSharedNode;
 use rusalka::component::Slot;
 use rusalka::store::{DerefGuardExt, ReadableStore, Signal, StoreUnsubscribe, Writable, WritableStore};
 
 pub struct SlotAcceptDemo {
     comp0: rusalka::SharedNodeComponent<Layout>,
-    comp1: Mutex<Option<Slot>>,
+    comp1: Arc<Mutex<Option<Slot>>>,
+    parent: Mutex<Option<WeakSharedNode>>,
     selfref: rusalka::WeakSharedComponent<Self>,
     attrs: ReactiveSlotAcceptDemoAttributes,
 }
@@ -52,14 +54,30 @@ impl rusalka::component::Component for SlotAcceptDemo {
             comp0: std::sync::Arc::new(
                 std::sync::RwLock::new(Layout { ..Default::default() }),
             ),
-            comp1: Mutex::new(None),
+            comp1: Arc::new(Mutex::new(None)),
             attrs: attrs.into(),
+            parent: Mutex::new(None),
             selfref
         };
         this
     }
     fn set(&mut self, attrs: Self::PartialComponentAttrs) {
-
+        if let Some(__default_slot) = attrs.__default_slot {
+            if let Some(slot) = &self.attrs.__default_slot {
+                if self.parent.lock().unwrap().is_some() {
+                    (*self.comp1.lock().unwrap().as_mut().unwrap().unmount)();
+                }
+                *self.comp1.lock().unwrap() = None;
+            }
+            if let Some(slot) = __default_slot {
+                *self.comp1.lock().unwrap() = Some(slot.lock().unwrap()(()));
+                if let Some(parent) = &self.parent.lock().unwrap().as_ref() {
+                    if let Some(parent) = parent.upgrade() {
+                        (*self.comp1.lock().unwrap().as_mut().unwrap().mount)(&parent, None);
+                    }
+                }
+            }
+        }
     }
     fn get(&self) -> &Self::ReactiveComponentAttrs {
         &self.attrs
@@ -69,6 +87,7 @@ impl rusalka::component::Component for SlotAcceptDemo {
         parent: &mangui::SharedNode,
         before: Option<&mangui::SharedNode>,
     ) {
+        self.parent.lock().unwrap().replace(Arc::downgrade(parent));
         rusalka::nodes::insert(parent, &{ self.comp0.clone() }, before);
         match &self.attrs.__default_slot {
             Some(slot) => {
@@ -79,6 +98,7 @@ impl rusalka::component::Component for SlotAcceptDemo {
         }
     }
     fn unmount(&self) {
+        self.parent.lock().unwrap().take();
         rusalka::nodes::detach(&{ self.comp0.clone() });
         match &self.attrs.__default_slot {
             Some(slot) => {
@@ -98,7 +118,7 @@ struct SlotDemoSlot1 {
 pub struct SlotDemo {
     comp0: rusalka::SharedNodeComponent<Layout>,
     comp1: rusalka::SharedComponent<SlotAcceptDemo>,
-    test_: std::sync::Arc<std::sync::Mutex<rusalka::store::Writable<bool>>>,
+    test_: std::sync::Arc<rusalka::store::Writable<bool>>,
     sub0: Box<dyn StoreUnsubscribe>,
     selfref: rusalka::WeakSharedComponent<Self>,
     attrs: ReactiveSlotDemoAttributes,
@@ -109,7 +129,7 @@ pub struct SlotDemoAttributes {
 }
 
 pub struct ReactiveSlotDemoAttributes {
-    pub test: Arc<Mutex<Writable<f32>>>
+    pub test: Arc<Writable<f32>>
 }
 
 #[derive(Default)]
@@ -124,17 +144,17 @@ impl From<SlotDemoAttributes> for PartialSlotDemoAttributes {
 
 impl From<ReactiveSlotDemoAttributes> for SlotDemoAttributes {
     fn from(attrs: ReactiveSlotDemoAttributes) -> Self {
-        Self { test: *attrs.test.lock().unwrap().get() }
+        Self { test: *attrs.test.get() }
     }
 }
 impl From<&ReactiveSlotDemoAttributes> for SlotDemoAttributes {
     fn from(attrs: &ReactiveSlotDemoAttributes) -> Self {
-        Self { test: *attrs.test.lock().unwrap().get() }
+        Self { test: *attrs.test.get() }
     }
 }
 impl From<SlotDemoAttributes> for ReactiveSlotDemoAttributes {
     fn from(attrs: SlotDemoAttributes) -> Self {
-        Self { test: Arc::new(Mutex::new(Writable::new(attrs.test))) }
+        Self { test: Arc::new(Writable::new(attrs.test)) }
     }
 }
 
@@ -149,9 +169,9 @@ impl rusalka::component::Component for SlotDemo {
     ) -> Self {
         let attrs: Self::ReactiveComponentAttrs = attrs.into();
         let test_: std::sync::Arc<
-            std::sync::Mutex<rusalka::store::Writable<bool>>,
+            rusalka::store::Writable<bool>,
         > = std::sync::Arc::new(
-            std::sync::Mutex::new(rusalka::store::Writable::new(false)),
+            rusalka::store::Writable::new(false),
         );
         let test = attrs.test.clone();
         let this = Self {
@@ -172,17 +192,17 @@ impl rusalka::component::Component for SlotDemo {
                                             let slot = Some(
                                                 SlotDemoSlot1 {
                                                     comp0: std::sync::Arc::new(
-                                                        std::sync::RwLock::new(Rectangle { radius: *test.clone().lock().unwrap().get(), ..Default::default() }),
+                                                        std::sync::RwLock::new(Rectangle { radius: *test.clone().get(), ..Default::default() }),
                                                     ),
                                                     sub0: {
                                                         let comp0 = comp0.clone();
                                                         let test = test.clone();
-                                                        [test.clone().lock().unwrap()].subscribe(Box::new(move || {
+                                                        [test.clone()].subscribe(Box::new(move || {
                                                             let comp1 = comp0.clone();
                                                             let test1 = test.clone();
                                                             let mut comp1l = comp1.lock().unwrap();
                                                             if let Some(comp1) = comp1l.as_mut() {
-                                                                comp1.comp0.write().unwrap().radius = *test1.lock().unwrap().get();
+                                                                comp1.comp0.write().unwrap().radius = *test1.get();
                                                             }
                                                         }))
                                                     },
@@ -211,9 +231,9 @@ impl rusalka::component::Component for SlotDemo {
             )),
             sub0: {
                 let test = test_.clone();
-                [test.clone().lock().unwrap()].subscribe(Box::new(move || {
+                [test.clone()].subscribe(Box::new(move || {
                     let test = test.clone();
-                    dbg!(test.lock().unwrap().get());
+                    dbg!(test.get());
                 }))
             },
             attrs,
@@ -233,10 +253,10 @@ impl rusalka::component::Component for SlotDemo {
                     let test_ = &this.test_;
                     match event.event {
                         mangui::events::InnerEvent::MouseDown(_) => {
-                            **test_.lock().unwrap().guard() = true;
+                            **test_.guard() = true;
                         }
                         mangui::events::InnerEvent::MouseUp(_) => {
-                            **test_.lock().unwrap().guard() = false;
+                            **test_.guard() = false;
                         }
                         _ => {}
                     }
@@ -246,8 +266,7 @@ impl rusalka::component::Component for SlotDemo {
     }
     fn set(&mut self, attrs: Self::PartialComponentAttrs) {
         if let Some(test) = attrs.test {
-            **self.attrs.test.lock().unwrap().guard() = test;
-            // self.attrs.test.lock().unwrap().set(test);
+            **self.attrs.test.guard() = test;
         }
     }
     fn get(&self) -> &Self::ReactiveComponentAttrs {
