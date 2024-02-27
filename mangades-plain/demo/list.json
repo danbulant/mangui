@@ -1,0 +1,1453 @@
+{
+  "data": {
+    "MediaListCollection": {
+      "lists": [
+        {
+          "name": "Reading",
+          "isCustomList": false,
+          "status": "CURRENT",
+          "isSplitCompletedList": false,
+          "entries": [
+            {
+              "status": "CURRENT",
+              "progress": 4,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 98610,
+                "title": {
+                  "romaji": "86: Eighty Six",
+                  "english": "86\u2015EIGHTY-SIX",
+                  "native": "86\u2015\u30a8\u30a4\u30c6\u30a3\u30b7\u30c3\u30af\u30b9\u2015",
+                  "userPreferred": "86\u2015EIGHTY-SIX"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx98610-TIf7R1gkU0vc.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx98610-TIf7R1gkU0vc.jpg",
+                  "color": "#e46b28"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 9,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 86303,
+                "title": {
+                  "romaji": "Kobayashi-san Chi no Maidragon",
+                  "english": "Miss Kobayashi's Dragon Maid",
+                  "native": "\u5c0f\u6797\u3055\u3093\u3061\u306e\u30e1\u30a4\u30c9\u30e9\u30b4\u30f3",
+                  "userPreferred": "Miss Kobayashi's Dragon Maid"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx86303-DItZrA3hbaJf.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx86303-DItZrA3hbaJf.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 94,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 85564,
+                "title": {
+                  "romaji": "Mushoku Tensei: Isekai Ittara Honki Dasu",
+                  "english": "Mushoku Tensei: Jobless Reincarnation",
+                  "native": "\u7121\u8077\u8ee2\u751f \uff5e\u7570\u4e16\u754c\u884c\u3063\u305f\u3089\u672c\u6c17\u3060\u3059\uff5e",
+                  "userPreferred": "Mushoku Tensei: Jobless Reincarnation"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx85564-egXRASF0x9B9.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx85564-egXRASF0x9B9.jpg",
+                  "color": "#e4ae0d"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 68,
+              "progressVolumes": 14,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 85976,
+                "title": {
+                  "romaji": "Overlord",
+                  "english": "Overlord",
+                  "native": "\u30aa\u30fc\u30d0\u30fc\u30ed\u30fc\u30c9",
+                  "userPreferred": "Overlord"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": 18,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx85976-hVr99G1kD1M5.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx85976-hVr99G1kD1M5.png",
+                  "color": "#e4bb5d"
+                },
+                "isAdult": false,
+                "isFavourite": true
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 11,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 127683,
+                "title": {
+                  "romaji": "Seishun Buta Yarou wa Logical Witch no Yume wo Minai",
+                  "english": null,
+                  "native": "\u9752\u6625\u30d6\u30bf\u91ce\u90ce\u306f\u30ed\u30b8\u30ab\u30eb\u30a6\u30a3\u30c3\u30c1\u306e\u5922\u3092\u898b\u306a\u3044",
+                  "userPreferred": "Seishun Buta Yarou wa Logical Witch no Yume wo Minai"
+                },
+                "status": "FINISHED",
+                "chapters": 12,
+                "volumes": 2,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx127683-uCdddf5j3zgO.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx127683-uCdddf5j3zgO.jpg",
+                  "color": "#e43543"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 111,
+              "progressVolumes": 19,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 86399,
+                "title": {
+                  "romaji": "Tensei Shitara Slime Datta Ken",
+                  "english": "That Time I Got Reincarnated as a Slime",
+                  "native": "\u8ee2\u751f\u3057\u305f\u3089\u30b9\u30e9\u30a4\u30e0\u3060\u3063\u305f\u4ef6",
+                  "userPreferred": "That Time I Got Reincarnated as a Slime"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx86399-NwbRFVh5koqc.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx86399-NwbRFVh5koqc.jpg",
+                  "color": "#50bbf1"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 80,
+              "progressVolumes": 19,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 97216,
+                "title": {
+                  "romaji": "Youjo Senki",
+                  "english": "The Saga of Tanya the Evil",
+                  "native": "\u5e7c\u5973\u6226\u8a18",
+                  "userPreferred": "The Saga of Tanya the Evil"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx97216-hleh4PmFoUgr.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx97216-hleh4PmFoUgr.png",
+                  "color": "#e4ae5d"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 87,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 108556,
+                "title": {
+                  "romaji": "SPY\u00d7FAMILY",
+                  "english": "SPY x FAMILY",
+                  "native": "SPY\u00d7FAMILY",
+                  "userPreferred": "SPY x FAMILY"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx108556-NHjkz0BNJhLx.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx108556-NHjkz0BNJhLx.jpg",
+                  "color": "#e43543"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 3,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 145809,
+                "title": {
+                  "romaji": "10-nenkan Tomodachi da to Omotteta Otokonoko ni Kokuhaku sareru Ohanashi ",
+                  "english": null,
+                  "native": "10\u5e74\u9593\u53cb\u9054\u3060\u3068\u601d\u3063\u3066\u305f\u7537\u306e\u5b50\u306b\u544a\u767d\u3055\u308c\u308b\u304a\u8a71",
+                  "userPreferred": "10-nenkan Tomodachi da to Omotteta Otokonoko ni Kokuhaku sareru Ohanashi "
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx145809-1XmeSckNHmc2.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx145809-1XmeSckNHmc2.jpg",
+                  "color": "#e43543"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 78,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 85934,
+                "title": {
+                  "romaji": "Overlord",
+                  "english": "Overlord",
+                  "native": "\u30aa\u30fc\u30d0\u30fc\u30ed\u30fc\u30c9",
+                  "userPreferred": "Overlord"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx85934-QbxLx34J8D4o.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx85934-QbxLx34J8D4o.png",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": true
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 3,
+              "progressVolumes": 1,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 105987,
+                "title": {
+                  "romaji": "Overlord: Koushiki Comic \u00e0 la Carte",
+                  "english": "Overlord \u00e0 la Carte",
+                  "native": "\u30aa\u30fc\u30d0\u30fc\u30ed\u30fc\u30c9 \u516c\u5f0f\u30b3\u30df\u30c3\u30af\u30a2\u30e9\u30ab\u30eb\u30c8",
+                  "userPreferred": "Overlord \u00e0 la Carte"
+                },
+                "status": "FINISHED",
+                "chapters": 47,
+                "volumes": 3,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx105987-IKuhjjYwUHab.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx105987-IKuhjjYwUHab.jpg",
+                  "color": "#aef150"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 5,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 88609,
+                "title": {
+                  "romaji": "Kill la Kill",
+                  "english": "KILL la KILL",
+                  "native": "\u30ad\u30eb\u30e9\u30ad\u30eb",
+                  "userPreferred": "KILL la KILL"
+                },
+                "status": "FINISHED",
+                "chapters": 17,
+                "volumes": 3,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx88609-Y5q7eQkRPJxx.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx88609-Y5q7eQkRPJxx.jpg",
+                  "color": "#d6931a"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 145,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 105778,
+                "title": {
+                  "romaji": "Chainsaw Man",
+                  "english": "Chainsaw Man",
+                  "native": "\u30c1\u30a7\u30f3\u30bd\u30fc\u30de\u30f3",
+                  "userPreferred": "Chainsaw Man"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx105778-82gwrvQV6OBc.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx105778-82gwrvQV6OBc.png",
+                  "color": "#f1c91a"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 128,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 117195,
+                "title": {
+                  "romaji": "[Oshi no Ko]",
+                  "english": "[Oshi no Ko]",
+                  "native": "\u3010\u63a8\u3057\u306e\u5b50\u3011",
+                  "userPreferred": "[Oshi no Ko]"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx117195-r3kf8eF0xkDJ.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx117195-r3kf8eF0xkDJ.png",
+                  "color": "#e450a1"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 2,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 115357,
+                "title": {
+                  "romaji": "Tomodachi Toshite Daisuki",
+                  "english": null,
+                  "native": "\u53cb\u9054\u3068\u3057\u3066\u5927\u597d\u304d",
+                  "userPreferred": "Tomodachi Toshite Daisuki"
+                },
+                "status": "FINISHED",
+                "chapters": 17,
+                "volumes": 3,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx115357-paDhlMfd9bhI.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx115357-paDhlMfd9bhI.jpg",
+                  "color": "#f1e40d"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 25,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 107603,
+                "title": {
+                  "romaji": "Sekai Saikou no Ansatsusha, Isekai Kizoku ni Tensei suru",
+                  "english": "The World's Finest Assassin Gets Reincarnated in Another World as an Aristocrat",
+                  "native": "\u4e16\u754c\u6700\u9ad8\u306e\u6697\u6bba\u8005\u3001\u7570\u4e16\u754c\u8cb4\u65cf\u306b\u8ee2\u751f\u3059\u308b",
+                  "userPreferred": "The World's Finest Assassin Gets Reincarnated in Another World as an Aristocrat"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx107603-OX3eYJ4shBtv.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx107603-OX3eYJ4shBtv.jpg",
+                  "color": "#e4ae50"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 47,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 104724,
+                "title": {
+                  "romaji": "Mushoku Tensei: Roxy datte Honki desu",
+                  "english": "Mushoku Tensei: Roxy Gets Serious",
+                  "native": "\u7121\u8077\u8ee2\u751f ~\u30ed\u30ad\u30b7\u30fc\u3060\u3063\u3066\u672c\u6c17\u3067\u3059~",
+                  "userPreferred": "Mushoku Tensei: Roxy Gets Serious"
+                },
+                "status": "FINISHED",
+                "chapters": 64,
+                "volumes": 12,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx104724-xu0uAAE02Yta.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx104724-xu0uAAE02Yta.jpg",
+                  "color": "#fec90d"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 173,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 119257,
+                "title": {
+                  "romaji": "Jeonjijeok Dokja Sijeom",
+                  "english": "Omniscient Reader",
+                  "native": "\uc804\uc9c0\uc801 \ub3c5\uc790 \uc2dc\uc810",
+                  "userPreferred": "Omniscient Reader"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx119257-KzlNZtgbRzxF.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx119257-KzlNZtgbRzxF.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": true
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 25,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 85400,
+                "title": {
+                  "romaji": "Akame ga Kill! Zero",
+                  "english": "Akame ga KILL! ZERO",
+                  "native": "\u30a2\u30ab\u30e1\u304c\u65ac\u308b\uff01\u96f6",
+                  "userPreferred": "Akame ga KILL! ZERO"
+                },
+                "status": "FINISHED",
+                "chapters": 60,
+                "volumes": 10,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx85400-V7bjOBJ7WI3u.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx85400-V7bjOBJ7WI3u.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 6,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 156130,
+                "title": {
+                  "romaji": "Ouji-sama no Tomodachi",
+                  "english": null,
+                  "native": "\u738b\u5b50\u69d8\u306e\u53cb\u9054",
+                  "userPreferred": "Ouji-sama no Tomodachi"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx156130-DwvaCS13rRuw.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx156130-DwvaCS13rRuw.jpg",
+                  "color": "#35a1e4"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 41,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 147997,
+                "title": {
+                  "romaji": "Seihantai na Kimi to Boku",
+                  "english": "You and I are Polar Opposites",
+                  "native": "\u6b63\u53cd\u5bfe\u306a\u541b\u3068\u50d5",
+                  "userPreferred": "You and I are Polar Opposites"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx147997-QSf3nuWPkYcE.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx147997-QSf3nuWPkYcE.jpg",
+                  "color": "#f15dbb"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 110,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 10,
+              "media": {
+                "id": 117324,
+                "title": {
+                  "romaji": "Nan Hao Shang Feng",
+                  "english": null,
+                  "native": "\u5357\u53f7\u5c1a\u98ce",
+                  "userPreferred": "Nan Hao Shang Feng"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx117324-97mHyfJGwpBq.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx117324-97mHyfJGwpBq.jpg",
+                  "color": "#e4ae5d"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 38,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 114917,
+                "title": {
+                  "romaji": "Saikin Yatotta Maid ga Ayashii",
+                  "english": "The Maid I Recently Hired is Mysterious",
+                  "native": "\u6700\u8fd1\u96c7\u3063\u305f\u30e1\u30a4\u30c9\u304c\u602a\u3057\u3044",
+                  "userPreferred": "The Maid I Recently Hired is Mysterious"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": 8,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx114917-MLwVfspWGBYw.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx114917-MLwVfspWGBYw.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 137,
+              "progressVolumes": 17,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 100664,
+                "title": {
+                  "romaji": "Ijiranaide, Nagatoro-san",
+                  "english": "Don't Toy With Me, Miss Nagatoro",
+                  "native": "\u30a4\u30b8\u3089\u306a\u3044\u3067\u3001\u9577\u701e\u3055\u3093",
+                  "userPreferred": "Don't Toy With Me, Miss Nagatoro"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx100664-uzN5998CDxPJ.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx100664-uzN5998CDxPJ.jpg",
+                  "color": "#1aa1e4"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 15,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9.5,
+              "media": {
+                "id": 164708,
+                "title": {
+                  "romaji": "Hanninmae no Koibito",
+                  "english": "Blooming Love",
+                  "native": "\u534a\u4eba\u524d\u306e\u604b\u4eba",
+                  "userPreferred": "Blooming Love"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx164708-bx5cBR4rhGTv.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx164708-bx5cBR4rhGTv.png",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 112,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 97836,
+                "title": {
+                  "romaji": "Mousou Telepathy",
+                  "english": null,
+                  "native": "\u5984\u60f3\u30c6\u30ec\u30d1\u30b7\u30fc",
+                  "userPreferred": "Mousou Telepathy"
+                },
+                "status": "FINISHED",
+                "chapters": 727,
+                "volumes": 7,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx97836-QDkI2xKD3q05.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx97836-QDkI2xKD3q05.jpg",
+                  "color": "#f150bb"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 9,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 104241,
+                "title": {
+                  "romaji": "Tsukiatte Agete mo Ii ka na",
+                  "english": "How Do We Relationship?",
+                  "native": "\u4ed8\u304d\u5408\u3063\u3066\u3042\u3052\u3066\u3082\u3044\u3044\u304b\u306a",
+                  "userPreferred": "How Do We Relationship?"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx104241-221zPt7Gpr5K.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx104241-221zPt7Gpr5K.png",
+                  "color": "#e4a15d"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 31,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9.6,
+              "media": {
+                "id": 126488,
+                "title": {
+                  "romaji": "Mitsuishi-san",
+                  "english": null,
+                  "native": "\u4e09\u77f3\u3055\u3093",
+                  "userPreferred": "Mitsuishi-san"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx126488-sPx6EMUHUIS4.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx126488-sPx6EMUHUIS4.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "CURRENT",
+              "progress": 24,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 72451,
+                "title": {
+                  "romaji": "Horimiya",
+                  "english": "Horimiya",
+                  "native": "\u30db\u30ea\u30df\u30e4",
+                  "userPreferred": "Horimiya"
+                },
+                "status": "FINISHED",
+                "chapters": 152,
+                "volumes": 17,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx72451-vVXtRwyttjGG.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx72451-vVXtRwyttjGG.png",
+                  "color": "#e45d93"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "Planning",
+          "isCustomList": false,
+          "status": "PLANNING",
+          "isSplitCompletedList": false,
+          "entries": [
+            {
+              "status": "PLANNING",
+              "progress": 0,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 85307,
+                "title": {
+                  "romaji": "Bungou Stray Dogs",
+                  "english": "Bungo Stray Dogs",
+                  "native": "\u6587\u8c6a\u30b9\u30c8\u30ec\u30a4\u30c9\u30c3\u30b0\u30b9",
+                  "userPreferred": "Bungo Stray Dogs"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx85307-cfwdYRhtHRpD.png",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx85307-cfwdYRhtHRpD.png",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "PLANNING",
+              "progress": 0,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 85548,
+                "title": {
+                  "romaji": "Steins;Gate: Hiyoku Renri no Future Honey",
+                  "english": "Steins,Gate: Loving Vows of the Future Honey",
+                  "native": "STEINS;GATE \u6bd4\u7ffc\u604b\u7406\u306e\u30d5\u30e5\u30fc\u30c1\u30e3\u30fc\u306f\u306b\u30fc",
+                  "userPreferred": "Steins,Gate: Loving Vows of the Future Honey"
+                },
+                "status": "FINISHED",
+                "chapters": 5,
+                "volumes": 1,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx85548-opx8yC1v339D.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx85548-opx8yC1v339D.jpg",
+                  "color": "#f1bb78"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "PLANNING",
+              "progress": 0,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 101951,
+                "title": {
+                  "romaji": "Overlord Fushisha no Oh!",
+                  "english": "Overlord: The Undead King Oh!",
+                  "native": "\u30aa\u30fc\u30d0\u30fc\u30ed\u30fc\u30c9 \u4e0d\u6b7b\u8005\u306eOh",
+                  "userPreferred": "Overlord: The Undead King Oh!"
+                },
+                "status": "RELEASING",
+                "chapters": null,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx101951-rIGK3S85N7Dc.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx101951-rIGK3S85N7Dc.jpg",
+                  "color": "#d6ae1a"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "PLANNING",
+              "progress": 0,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 155939,
+                "title": {
+                  "romaji": "Kobayashi-san Chi no Maidragon Full Color Comic: SAI",
+                  "english": "Miss Kobayashi\u2019s Dragon Maid in COLOR! \u2013 Chromatic Edition",
+                  "native": "\u5c0f\u6797\u3055\u3093\u3061\u306e\u30e1\u30a4\u30c9\u30e9\u30b4\u30f3 \u30d5\u30eb\u30ab\u30e9\u30fc\u30b3\u30df\u30c3\u30af \u5f69-SAI-",
+                  "userPreferred": "Miss Kobayashi\u2019s Dragon Maid in COLOR! \u2013 Chromatic Edition"
+                },
+                "status": "FINISHED",
+                "chapters": 11,
+                "volumes": 1,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx155939-ce67cHTxNaGC.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx155939-ce67cHTxNaGC.jpg",
+                  "color": "#f1bb5d"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "PLANNING",
+              "progress": 0,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 168162,
+                "title": {
+                  "romaji": "[Oshi no Ko]: interlude",
+                  "english": "[Oshi no Ko]: interlude",
+                  "native": "\u3010\u63a8\u3057\u306e\u5b50\u3011-interlude-",
+                  "userPreferred": "[Oshi no Ko]: interlude"
+                },
+                "status": "FINISHED",
+                "chapters": 4,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx168162-fGSImLRehOOf.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx168162-fGSImLRehOOf.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completed",
+          "isCustomList": false,
+          "status": "COMPLETED",
+          "isSplitCompletedList": false,
+          "entries": [
+            {
+              "status": "COMPLETED",
+              "progress": 20,
+              "progressVolumes": 2,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 10,
+              "media": {
+                "id": 87471,
+                "title": {
+                  "romaji": "Seishun Buta Yarou wa Bunny Girl Senpai no Yume wo Minai",
+                  "english": "Rascal Does Not Dream of Bunny Girl Senpai",
+                  "native": "\u9752\u6625\u30d6\u30bf\u91ce\u90ce\u306f\u30d0\u30cb\u30fc\u30ac\u30fc\u30eb\u5148\u8f29\u306e\u5922\u3092\u898b\u306a\u3044",
+                  "userPreferred": "Rascal Does Not Dream of Bunny Girl Senpai"
+                },
+                "status": "FINISHED",
+                "chapters": 20,
+                "volumes": 2,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx87471-ZFV3DUDdYZGH.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx87471-ZFV3DUDdYZGH.jpg",
+                  "color": "#43bbe4"
+                },
+                "isAdult": false,
+                "isFavourite": true
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 12,
+              "progressVolumes": 2,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 104236,
+                "title": {
+                  "romaji": "Seishun Buta Yarou wa Petit Devil Kouhai no Yume wo Minai",
+                  "english": "Rascal Does Not Dream of Petite Devil Kohai",
+                  "native": "\u9752\u6625\u30d6\u30bf\u91ce\u90ce\u306f\u30d7\u30c1\u30c7\u30d3\u30eb\u5f8c\u8f29\u306e\u5922\u3092\u898b\u306a\u3044",
+                  "userPreferred": "Rascal Does Not Dream of Petite Devil Kohai"
+                },
+                "status": "FINISHED",
+                "chapters": 12,
+                "volumes": 2,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx104236-4NUReB4wRajg.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx104236-4NUReB4wRajg.jpg",
+                  "color": "#f1bb50"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 23,
+              "progressVolumes": 3,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 47517,
+                "title": {
+                  "romaji": "Steins;Gate",
+                  "english": null,
+                  "native": "\u30b7\u30e5\u30bf\u30a4\u30f3\u30ba\u30fb\u30b2\u30fc\u30c8",
+                  "userPreferred": "Steins;Gate"
+                },
+                "status": "FINISHED",
+                "chapters": 23,
+                "volumes": 3,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx47517-AVxOn4oGgIIj.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx47517-AVxOn4oGgIIj.jpg",
+                  "color": "#d6f143"
+                },
+                "isAdult": false,
+                "isFavourite": true
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 19,
+              "progressVolumes": 4,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 77825,
+                "title": {
+                  "romaji": "Steins;Gate: Aishin Meizu no Babel",
+                  "english": null,
+                  "native": "\u30b7\u30e5\u30bf\u30a4\u30f3\u30ba\u30fb\u30b2\u30fc\u30c8 - \u54c0\u5fc3\u8ff7\u56f3\u306e\u30d0\u30d9\u30eb",
+                  "userPreferred": "Steins;Gate: Aishin Meizu no Babel"
+                },
+                "status": "FINISHED",
+                "chapters": 19,
+                "volumes": 4,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx77825-BnxGaWaN8F6i.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx77825-BnxGaWaN8F6i.jpg",
+                  "color": "#f1d6bb"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 79,
+              "progressVolumes": 12,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 10,
+              "media": {
+                "id": 85471,
+                "title": {
+                  "romaji": "Eromanga Sensei",
+                  "english": "Eromanga Sensei",
+                  "native": "\u30a8\u30ed\u30de\u30f3\u30ac\u5148\u751f",
+                  "userPreferred": "Eromanga Sensei"
+                },
+                "status": "FINISHED",
+                "chapters": 79,
+                "volumes": 12,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx85471-8HgNG2bIXEzc.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx85471-8HgNG2bIXEzc.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 11,
+              "progressVolumes": 2,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 78397,
+                "title": {
+                  "romaji": "No Game No Life",
+                  "english": null,
+                  "native": "\u30ce\u30fc\u30b2\u30fc\u30e0\u30fb\u30ce\u30fc\u30e9\u30a4\u30d5",
+                  "userPreferred": "No Game No Life"
+                },
+                "status": "CANCELLED",
+                "chapters": 11,
+                "volumes": 2,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx78397-e5JAq8YfNc3I.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx78397-e5JAq8YfNc3I.jpg",
+                  "color": "#e49335"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 201,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 105398,
+                "title": {
+                  "romaji": "Na Honjaman Level Up",
+                  "english": "Solo Leveling",
+                  "native": "\ub098 \ud63c\uc790\ub9cc \ub808\ubca8\uc5c5",
+                  "userPreferred": "Solo Leveling"
+                },
+                "status": "FINISHED",
+                "chapters": 201,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx105398-b673Vt5ZSuz3.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx105398-b673Vt5ZSuz3.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 18,
+              "progressVolumes": 3,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 10,
+              "media": {
+                "id": 97553,
+                "title": {
+                  "romaji": "Jumyou wo Kaitotte Moratta. Ichinen ni Tsuki, Ichimanen de.",
+                  "english": null,
+                  "native": "\u5bff\u547d\u3092\u8cb7\u3044\u53d6\u3063\u3066\u3082\u3089\u3063\u305f\u3002\u4e00\u5e74\u306b\u3064\u304d\u3001\u4e00\u4e07\u5186\u3067\u3002",
+                  "userPreferred": "Jumyou wo Kaitotte Moratta. Ichinen ni Tsuki, Ichimanen de."
+                },
+                "status": "FINISHED",
+                "chapters": 18,
+                "volumes": 3,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx97553-vqJj5DFS8v2p.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx97553-vqJj5DFS8v2p.jpg",
+                  "color": "#5dbbe4"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 4,
+              "progressVolumes": 1,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 9,
+              "media": {
+                "id": 45916,
+                "title": {
+                  "romaji": "Waga Tousou",
+                  "english": null,
+                  "native": "\u308f\u304c\u95d8\u4e89",
+                  "userPreferred": "Waga Tousou"
+                },
+                "status": "FINISHED",
+                "chapters": 4,
+                "volumes": 1,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/15916.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/15916.jpg",
+                  "color": "#f15d43"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 35,
+              "progressVolumes": 4,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 102490,
+                "title": {
+                  "romaji": "Kaguya-sama wa Kokurasetai: Doujin-ban",
+                  "english": "Kaguya-sama: Love is War - Doujin Edition",
+                  "native": "\u304b\u3050\u3084\u69d8\u306f\u544a\u3089\u305b\u305f\u3044 \u540c\u4eba\u7248",
+                  "userPreferred": "Kaguya-sama: Love is War - Doujin Edition"
+                },
+                "status": "FINISHED",
+                "chapters": 35,
+                "volumes": 4,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/nx102490-RGwfbrB4ieH2.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/nx102490-RGwfbrB4ieH2.jpg",
+                  "color": "#e4c95d"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 6,
+              "progressVolumes": 1,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 146378,
+                "title": {
+                  "romaji": "Mushoku Tensei: Eris wa Honki de Kiba wo Togu",
+                  "english": null,
+                  "native": "\u7121\u8077\u8ee2\u751f ~\u30a8\u30ea\u30b9\u306f\u672c\u6c17\u3067\u7259\u3092\u7814\u3050~",
+                  "userPreferred": "Mushoku Tensei: Eris wa Honki de Kiba wo Togu"
+                },
+                "status": "FINISHED",
+                "chapters": 6,
+                "volumes": 1,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx146378-AoXmPs5AJ8z3.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx146378-AoXmPs5AJ8z3.jpg",
+                  "color": "#ffbb35"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 80,
+              "progressVolumes": 15,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 8,
+              "media": {
+                "id": 55132,
+                "title": {
+                  "romaji": "Akame ga Kill!",
+                  "english": "Akame ga KILL!",
+                  "native": "\u30a2\u30ab\u30e1\u304c\u65ac\u308b\uff01",
+                  "userPreferred": "Akame ga KILL!"
+                },
+                "status": "FINISHED",
+                "chapters": 80,
+                "volumes": 15,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx55132-bhKk5JoXcvdA.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx55132-bhKk5JoXcvdA.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 4,
+              "progressVolumes": 1,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 0,
+              "media": {
+                "id": 95840,
+                "title": {
+                  "romaji": "Akame ga Kill! 1.5",
+                  "english": null,
+                  "native": "\u30a2\u30ab\u30e1\u304c\u65ac\u308b! 1.5\u5dfb",
+                  "userPreferred": "Akame ga Kill! 1.5"
+                },
+                "status": "FINISHED",
+                "chapters": 4,
+                "volumes": 1,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/95840-NyU6O8MYPGMH.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/95840-NyU6O8MYPGMH.jpg",
+                  "color": "#f15dae"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 57,
+              "progressVolumes": 57,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 8,
+              "media": {
+                "id": 131287,
+                "title": {
+                  "romaji": "Kimi to Picopico",
+                  "english": null,
+                  "native": "\u304d\u307f\u3068\u30d4\u30b3\u30d4\u30b3",
+                  "userPreferred": "Kimi to Picopico"
+                },
+                "status": "FINISHED",
+                "chapters": 57,
+                "volumes": 5,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx131287-DqLXCfCHmc6d.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx131287-DqLXCfCHmc6d.jpg",
+                  "color": "#5dc9e4"
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            },
+            {
+              "status": "COMPLETED",
+              "progress": 1,
+              "progressVolumes": 0,
+              "repeat": 0,
+              "priority": 0,
+              "private": false,
+              "notes": null,
+              "score": 8,
+              "media": {
+                "id": 138669,
+                "title": {
+                  "romaji": "Saikai",
+                  "english": null,
+                  "native": "\u518d\u4f1a",
+                  "userPreferred": "Saikai"
+                },
+                "status": "FINISHED",
+                "chapters": 1,
+                "volumes": null,
+                "coverImage": {
+                  "large": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/medium\/bx138669-Tc8XHpJRsikt.jpg",
+                  "medium": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/manga\/cover\/small\/bx138669-Tc8XHpJRsikt.jpg",
+                  "color": null
+                },
+                "isAdult": false,
+                "isFavourite": false
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
