@@ -31,16 +31,17 @@ use crate::nodes::{update_taffynode_children, MeasureContext, Node, render_recur
 
 pub mod nodes;
 pub mod events;
+
 pub use taffy;
 pub use femtovg;
 pub use cosmic_text;
 
 pub type CurrentRenderer = OpenGl;
-pub type SharedNode = Arc<RwLock<dyn Node>>;
-pub type WeakSharedNode = Weak<RwLock<dyn Node>>;
-type WeakNode = Weak<RwLock<dyn Node>>;
+pub type SharedNode = Arc<Mutex<dyn Node>>;
+pub type WeakSharedNode = Weak<Mutex<dyn Node>>;
+type WeakNode = Weak<Mutex<dyn Node>>;
 type NodePtr = Option<Vec<WeakNode>>;
-type NodeLayoutMap = PtrWeakKeyHashMap<Weak<RwLock<dyn Node>>, taffy::tree::NodeId>;
+type NodeLayoutMap = PtrWeakKeyHashMap<Weak<Mutex<dyn Node>>, taffy::tree::NodeId>;
 
 lazy_static::lazy_static! {
     pub static ref FONT_SYSTEM: Mutex<FontSystem> = Mutex::new(FontSystem::new());
@@ -80,7 +81,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
     let mut taffy_map = NodeLayoutMap::new();
     {
         let cloned = entry.root.clone();
-        let root = cloned.read().unwrap();
+        let root = cloned.lock().unwrap();
         let root_style = root.deref().style();
         let root_layout = root_style.layout.to_owned();
         let taffy_root_node = taffy.new_leaf(root_layout).unwrap();
@@ -241,7 +242,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                 let width: NonZeroU32 = NonZeroU32::new(size.width).unwrap();
                 let height: NonZeroU32 = NonZeroU32::new(size.height).unwrap();
                 surface.resize(&buffer_context, width, height);
-                let mut groot = entry.root.write().unwrap();
+                let mut groot = entry.root.lock().unwrap();
                 // let scale_factor = window.scale_factor();
                 groot.resize(size.width as f32, size.height as f32);
                 drop(groot);
@@ -263,7 +264,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                     }
                     prepare_render_recursively(&root, &mut context);
                     for (node, taffy_node) in context.node_layout.iter() {
-                        let node = node.read().unwrap();
+                        let node = node.lock().unwrap();
                         let node_style = node.style();
                         context.taffy.set_style(*taffy_node, node_style.layout.to_owned()).unwrap();
                     }
@@ -279,7 +280,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                                 Some(node) => {
                                     match node.upgrade() {
                                         Some(node) => {
-                                            node.write().unwrap().measure(&mut measure_context, known_dimensions, available_space)
+                                            node.lock().unwrap().measure(&mut measure_context, known_dimensions, available_space)
                                         },
                                         None => Size::ZERO
                                     }

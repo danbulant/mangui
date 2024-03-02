@@ -45,8 +45,6 @@ pub struct Image {
     pub style: Style,
     /// The image to be rendered.
     pub image: ImageLoad,
-    /// Border radius
-    pub radius: f32,
     pub events: EventHandlerDatabase,
     pub parent: Option<WeakNode>
 }
@@ -57,10 +55,6 @@ impl Image {
             image,
             ..Default::default()
         }
-    }
-    pub fn radius(mut self, radius: f32) -> Image {
-        self.radius = radius;
-        self
     }
     pub fn style(mut self, style: Style) -> Image {
         self.style = style;
@@ -123,10 +117,13 @@ impl Node for Image {
             0.,
             layout.size.width,
             layout.size.height,
-            self.radius
+            self.style.border_radius
         );
         match &self.image {
             ImageLoad::Loaded(image) => {
+                if let Some(background) = &self.style.background {
+                    context.canvas.fill_path(&path, background);
+                }
                 context.canvas.fill_path(
                     &path,
                     &Paint::image(image.image, 0., 0., layout.size.width, layout.size.height, 0., 1.)

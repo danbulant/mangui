@@ -1,10 +1,10 @@
 use std::fmt::Debug;
-use std::sync::{Arc, RwLock};
 use crate::{events::handler::EventHandlerDatabase, SharedNode, WeakNode, FONT_SYSTEM};
 use super::{text_render_cache::RENDER_CACHE, Node, NodeChildren, Style, MeasureContext, RenderContext};
-use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Stretch};
-use femtovg::{Color, Paint, Path};
+use cosmic_text::{Attrs, Buffer, Metrics, Shaping};
 use taffy::{AvailableSpace, Size};
+use femtovg::{Color, Paint, Path};
+use crate::nodes::primitives::draw_rect;
 use crate::nodes::text_render_cache::TextConfig;
 
 #[derive(Debug, Default)]
@@ -13,16 +13,13 @@ pub struct Text {
     pub text: String,
     pub events: EventHandlerDatabase,
     pub parent: Option<WeakNode>,
-    pub metrics: Metrics,
-    pub buffer: Option<Buffer>,
-    pub paint: Paint
+    pub buffer: Option<Buffer>
 }
 
 impl Text {
     pub fn new(text: String, metrics: Metrics) -> Text {
         Text {
             text,
-            metrics,
             ..Default::default()
         }
     }
@@ -30,17 +27,17 @@ impl Text {
         self.text = text;
         self
     }
-    pub fn metrics(mut self, metrics: Metrics) -> Self {
-        self.metrics = metrics;
-        self
-    }
-    pub fn paint(mut self, paint: Paint) -> Self {
-        self.paint = paint;
-        self
-    }
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
+    }
+    
+    fn get_metrics(&self) -> Metrics {
+        let fontSize = self.style.font_size.unwrap_or(16.);
+        Metrics {
+            font_size: fontSize,
+            line_height: fontSize * self.style.line_height.unwrap_or(1.2)
+        }
     }
 }
 
@@ -55,7 +52,7 @@ impl Node for Text {
 
     fn prepare_render(&mut self, _context: &mut RenderContext) {
         if let None = self.buffer {
-            self.buffer = Some(Buffer::new(&mut FONT_SYSTEM.lock().unwrap(), self.metrics));
+            self.buffer = Some(Buffer::new(&mut FONT_SYSTEM.lock().unwrap(), self.get_metrics()));
         }
         let buf = self.buffer.as_mut().unwrap();
         let mut font = FONT_SYSTEM.lock().unwrap();
@@ -63,6 +60,8 @@ impl Node for Text {
     }
 
     fn render_pre_children(&mut self, context: &mut super::RenderContext, layout: taffy::prelude::Layout) {
+        if let Some(background) = &self.style.background { draw_rect(layout.size, background, self.style.border_radius, &mut context.canvas); }
+        let metrics = self.get_metrics();
         // this can crash, but it should crash earlier during measure -> see the comment there.
         let buf = self.buffer.as_mut().unwrap();
         let mut font = FONT_SYSTEM.lock().unwrap();
@@ -72,41 +71,17 @@ impl Node for Text {
             );
         // the height * scale factor is an ugly hack to fix height of the text... not sure why it's wrong in the first place
         buf.set_size(&mut font, layout.content_size.width - offset_size.0, (layout.content_size.height * context.scale_factor) - offset_size.1);
-        buf.set_metrics(&mut font, self.metrics.scale(context.scale_factor));
+        buf.set_metrics(&mut font, metrics.scale(context.scale_factor));
         // fill_to_cmds requires FONT_SYSTEM lock.
         drop(font);
-        let mut path = Path::new();
-        path.rounded_rect(
-            0.,
-            0.,
-            layout.size.width,
-            layout.size.height,
-            0.
-        );
-        context.canvas.fill_path(
-            &path,
-            &Paint::color(Color::rgb(255, 0, 0))
-        );
         let position = (
                 layout.padding.left + layout.border.left,
                 layout.padding.top + layout.border.top
             );
-        let mut path = Path::new();
-        path.rounded_rect(
-            position.0,
-            position.1,
-            layout.content_size.width - offset_size.0,
-            layout.content_size.height - offset_size.1,
-            0.
-        );
-        context.canvas.fill_path(
-            &path,
-            &Paint::color(Color::rgb(0, 0, 255))
-        );
         let cmds = RENDER_CACHE.lock().unwrap()
             .fill_to_cmds(&mut context.canvas, buf, position, context.scale_factor, TextConfig { hint: false, subpixel: false })
             .unwrap();
-        context.canvas.draw_glyph_commands(cmds, &self.paint, context.scale_factor);
+        context.canvas.draw_glyph_commands(cmds, self.style.text_fill.as_ref().unwrap_or(&Paint::color(Color::black())), context.scale_factor);
     }
 
     fn measure(&mut self, context: &mut MeasureContext, known_dimensions: Size<Option<f32>>, available_space: Size<AvailableSpace>) -> Size<f32> {
@@ -115,12 +90,13 @@ impl Node for Text {
             AvailableSpace::MaxContent => f32::INFINITY,
             AvailableSpace::Definite(width) => width,
         });
+        let metrics = self.get_metrics();
         // yes, this can crash if someone removes `buffer` during render from another thread.
         // though they're asking for it, so let them crash.
         let buf = self.buffer.as_mut().unwrap();
         let mut font = FONT_SYSTEM.lock().unwrap();
         buf.set_size(&mut font, width_constraint, f32::INFINITY);
-        buf.set_metrics(&mut font, self.metrics.scale(context.scale_factor));
+        buf.set_metrics(&mut font, metrics.scale(context.scale_factor));
 
         // Compute layout
         buf.shape_until_scroll(&mut font, true);

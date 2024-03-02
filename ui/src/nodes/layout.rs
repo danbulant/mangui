@@ -1,7 +1,10 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, RwLock};
+use femtovg::{Paint, Path};
 use crate::{nodes::{Node, NodeChildren, Style}, events::handler::EventHandlerDatabase, WeakNode, SharedNode};
 use taffy::style::Dimension;
+use crate::nodes::primitives::draw_rect;
+use crate::nodes::RenderContext;
 
 /// A simple layout node which contains children.
 #[derive(Default)]
@@ -18,7 +21,7 @@ impl Layout {
             style: Style::default(),
             children,
             events: EventHandlerDatabase::default(),
-            parent: None
+            ..Default::default()
         }
     }
     pub fn empty() -> Layout {
@@ -26,7 +29,7 @@ impl Layout {
             style: Style::default(),
             children: NodeChildren::default(),
             events: EventHandlerDatabase::default(),
-            parent: None
+            ..Default::default()
         }
     }
     
@@ -55,6 +58,10 @@ impl Node for Layout {
     fn resize(&mut self, width: f32, height: f32) {
         self.style.layout.size.width = Dimension::Length(width);
         self.style.layout.size.height = Dimension::Length(height);
+    }
+    
+    fn render_pre_children(&mut self, context: &mut RenderContext, layout: taffy::Layout) {
+        if let Some(background) = &self.style.background { draw_rect(layout.size, background, self.style.border_radius, &mut context.canvas); }
     }
 
     fn add_child_at(&mut self, child: crate::SharedNode, index: usize) -> Result<(), super::ChildAddError> {

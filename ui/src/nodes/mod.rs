@@ -6,14 +6,14 @@ pub mod text;
 pub mod text_render_cache;
 
 use std::fmt::Debug;
-use std::sync::{Arc, RwLock};
-use femtovg::{Canvas, Color};
+use std::sync::{Arc, Mutex, RwLock};
+use femtovg::{Canvas, Color, Paint};
 use crate::events::Location;
 use crate::events::handler::InnerEventHandlerDataset;
 use crate::{NodeLayoutMap, NodePtr, CurrentRenderer, SharedNode, WeakNode};
 
 pub use taffy::style::Style as TaffyStyle;
-use taffy::{Layout, Overflow, Size, TaffyTree};
+use taffy::{Layout, Overflow, Point, Size, TaffyTree};
 
 pub type CanvasRenderer = Canvas<CurrentRenderer>;
 
@@ -38,9 +38,9 @@ impl RenderContext {
     pub fn fill_rect(&mut self, x: u32, y: u32, width: u32, height: u32, color: Color) {
         let transform = self.canvas.transform();
         let x = transform[0] * x as f32 + transform[2] * y as f32 + transform[4];
-        let y = transform[1] * x as f32 + transform[3] * y as f32 + transform[5];
+        let y = transform[1] * x + transform[3] * y as f32 + transform[5];
         let width = transform[0] * width as f32 + transform[2] * height as f32;
-        let height = transform[1] * width as f32 + transform[3] * height as f32;
+        let height = transform[1] * width + transform[3] * height as f32;
         self.canvas.clear_rect(x as u32, y as u32, width as u32, height as u32, color);
     }
 }
@@ -50,10 +50,34 @@ pub enum Cursor {
     #[default]
     Default
 }
+
+#[derive(Clone, Default, Debug)]
+/// Transform is handled by UI lib - components shouldn't need to read this.
+pub struct Transform {
+    /// Translation in x and y direction (in pixels; scaled by parents)
+    pub position: Point<f32>,
+    /// Scale in x and y direction
+    pub scale: Size<f32>,
+    /// Rotation in radians
+    pub rotation: f32
+}
+
+/// Styles for the node. Note that the styles aren't inherited (yet?)
 #[derive(Clone, Default, Debug)]
 pub struct Style {
     pub layout: TaffyStyle,
-    pub cursor: Cursor
+    pub cursor: Cursor,
+    pub background: Option<Paint>,
+    /// defaults to black
+    pub text_fill: Option<Paint>,
+    /// font size in pixels. Default is 16
+    pub font_size: Option<f32>,
+    /// multiplier of line height in relation to font size. Default is 1.2
+    pub line_height: Option<f32>,
+    /// border radius in pixels
+    pub border_radius: f32,
+    /// Various transformation (position, scale and rotation)
+    pub transform: Option<Transform>
 }
 
 type NodeChildren = Vec<SharedNode>;
@@ -105,7 +129,7 @@ pub enum ChildAddError {
 ///    - [`Node::render_pre_children`] is called
 ///    - children are rendered
 ///    - [`Node::render_post_children`] is called
-pub trait Node: Debug {
+pub trait Node: Debug + Send {
     /// Return style.
     ///insert
     /// If you're using [`Style`] in your struct directly, your implementation can be as simple as:
@@ -172,7 +196,7 @@ pub trait Node: Debug {
     /// Add a child to the node at the given index. If the node does not support children, returns error ChildrenNotSupported.
     /// Adding the same child multiple times or to multiple parents is not supported and will result in undefined behavior.
     /// Arc<RwLock<Node>> does **NOT** mean that it's safe to add the same node multiple times.
-    /// 
+    ///
     /// Note that this doesn't set the parent of the child. You need to do that manually.
     ///
     /// Implementors can check [`Node::has_child`] to check if the child already exists. Default implementation throws [`ChildAddError::ChildrenNotSupported`].
@@ -275,7 +299,7 @@ pub trait ToShared {
 
 impl<T: Node + 'static> ToShared for T {
     fn to_shared(self) -> SharedNode {
-        Arc::new(RwLock::new(self))
+        Arc::new(Mutex::new(self))
     }
 }
 
@@ -283,7 +307,7 @@ impl<T: Node + 'static> ToShared for T {
 /// The target element should be the last one in path (event handlers are ran in reverse order)
 pub(crate) fn run_event_handlers(path: Vec<SharedNode>, event: crate::events::NodeEvent) {
     for node in path.iter().rev() {
-        let node = node.read().unwrap();
+        let node = node.lock().unwrap();
         if let Some(handlers) = node.event_handlers() {
             drop(node);
             for handler in handlers.lock().unwrap().values_mut() {
@@ -294,7 +318,7 @@ pub(crate) fn run_event_handlers(path: Vec<SharedNode>, event: crate::events::No
 }
 
 pub(crate) fn run_single_event_handlers(node: SharedNode, event: crate::events::NodeEvent) {
-    let node = node.read().unwrap();
+    let node = node.lock().unwrap();
     if let Some(handlers) = node.event_handlers() {
         drop(node);
         for handler in handlers.lock().unwrap().values_mut() {
@@ -305,7 +329,7 @@ pub(crate) fn run_single_event_handlers(node: SharedNode, event: crate::events::
 
 /// Attempts to get path to the element at the target location. Assumes elements are always inside their parents.
 pub(crate) fn get_element_at(node: &SharedNode, context: &RenderContext, location: Location) -> Option<Vec<SharedNode>> {
-    let node_borrowed = node.read().unwrap();
+    let node_borrowed = node.lock().unwrap();
     let children = node_borrowed.children();
     let taffy_node = context.node_layout.get(node);
     let taffy_node = match taffy_node {
@@ -340,7 +364,7 @@ pub(crate) fn update_taffynode_children(node: &SharedNode, context: &mut RenderC
         Some(taffy_node) => taffy_node,
         None => {
             let taffy_node = context.taffy.new_leaf_with_context(
-                node.read().unwrap().style().layout.to_owned(),
+                node.lock().unwrap().style().layout.to_owned(),
                 Arc::downgrade(node)
             ).unwrap();
             context.node_layout.insert(node.clone(), taffy_node);
@@ -350,13 +374,13 @@ pub(crate) fn update_taffynode_children(node: &SharedNode, context: &mut RenderC
 
     let taffy_node = taffy_node.to_owned();
 
-    match node.read().unwrap().children() {
+    match node.lock().unwrap().children() {
         None => {},
         Some(children) => {
             let mut t_children = Vec::with_capacity(children.len());
             for child in children {
                 t_children.push(update_taffynode_children(child, context).to_owned());
-                child.write().unwrap().set_parent(Some(Arc::downgrade(node)));
+                child.lock().unwrap().set_parent(Some(Arc::downgrade(node)));
             }
             context.taffy.set_children(taffy_node, t_children.as_slice()).unwrap();
         }
@@ -366,13 +390,18 @@ pub(crate) fn update_taffynode_children(node: &SharedNode, context: &mut RenderC
 }
 
 pub(crate) fn render_recursively(node: &SharedNode, context: &mut RenderContext) {
-    let read_node = node.read().unwrap();
+    let read_node = node.lock().unwrap();
     let styles = read_node.style();
     let taffy_node = context.node_layout.get(node).unwrap();
     let layout = *context.taffy.layout(*taffy_node).unwrap();
     let sself = node.clone();
     context.canvas.save();
-    context.canvas.translate(layout.location.x, layout.location.y);
+    let offset = styles.transform.as_ref().map(|t| (t.position.x, t.position.y)).unwrap_or((0., 0.));
+    context.canvas.translate(layout.location.x + offset.0, layout.location.y + offset.1);
+    if let Some(transform) = &styles.transform {
+        context.canvas.scale(transform.scale.width, transform.scale.height);
+        context.canvas.rotate(transform.rotation);
+    }
     let clip_width = matches!(styles.layout.overflow.x, Overflow::Hidden | Overflow::Clip);
     let clip_height = matches!(styles.layout.overflow.y, Overflow::Hidden | Overflow::Clip);
     if clip_width || clip_height {
@@ -384,18 +413,18 @@ pub(crate) fn render_recursively(node: &SharedNode, context: &mut RenderContext)
         );
     }
     drop(read_node);
-    sself.write().unwrap().render_pre_children(context, layout);
-    if let Some(children) = sself.read().unwrap().children() {
+    sself.lock().unwrap().render_pre_children(context, layout);
+    if let Some(children) = sself.lock().unwrap().children() {
         for child in children {
             render_recursively(child, context);
         }
     }
-    sself.write().unwrap().render_post_children(context, layout);
+    sself.lock().unwrap().render_post_children(context, layout);
     context.canvas.restore();
 }
 
 pub(crate) fn prepare_render_recursively(node: &SharedNode, context: &mut RenderContext) {
-    let mut write_node = node.write().unwrap();
+    let mut write_node = node.lock().unwrap();
     write_node.prepare_render(context);
     if let Some(children) = write_node.children() {
         for child in children {

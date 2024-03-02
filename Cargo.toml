@@ -6,5 +6,6 @@ members = [
     "mangades",
     "rusalka",
     "rusalka-macro",
-    "mangades-plain"
+    "mangades-plain",
+    "uno-gen"
 ]

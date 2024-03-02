@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Debug, sync::{Arc, Mutex}};
 use super::NodeEvent;
 
 /// A node event handler
-pub type EventHandler = dyn FnMut(&NodeEvent);
+pub type EventHandler = dyn FnMut(&NodeEvent) + Send;
 
 pub type InnerEventHandlerDataset = Arc<Mutex<HashMap<usize, Arc<Mutex<Box<EventHandler>>>>>>;
 

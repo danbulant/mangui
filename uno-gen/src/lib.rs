@@ -1,6 +1,84 @@
 use proc_macro2::{Span, TokenStream, TokenTree};
-use quote::{IdentFragment, quote_spanned};
+use quote::{IdentFragment, quote, quote_spanned, ToTokens};
 use quote::spanned::Spanned;
+
+macro_rules! impl_enum_totokens {
+    (
+        $name:ident,
+        $prefix:path
+        $(, $( $variant:ident ),+)?
+        $(; $( $qvariant:ident ( $( $qual:ident ),+ ) ),* )?
+        $(| $( $qvariant2:ident ( $( $qual2:ident => $qtype:tt ),+ ) ),* )?
+    ) => {
+        impl ToTokens for $name {
+            fn to_tokens(&self, stream: &mut TokenStream) {
+                stream.extend(match self {
+                    $(
+                        $(
+                            $name::$variant => {
+                                quote! {
+                                    $prefix::$variant
+                                }
+                            }
+                        ),+
+                    )?
+                    $(
+                        $(
+                            $name::$qvariant($($qual),+) => {
+                                quote! {
+                                    $prefix::$qvariant($(#$qual),+)
+                                }
+                            }
+                        )+
+                    )?
+                    $(
+                        $(
+                            $name::$qvariant2($($qual2),+) => {
+                                quote! {
+                                    $prefix::$qvariant2($( $qtype ),+)
+                                }
+                            }
+                        )+
+                    )?
+                });
+            }
+        }        
+    }
+}
+
+macro_rules! impl_struct_usersettable_totokens {
+    (
+        $name:ident,
+        $prefix:path,
+        $($variant:ident),+
+        $(| $( $qvariant:ident => $qtype:tt ),* )?
+    ) => {
+        impl ToTokens for $name {
+            fn to_tokens(&self, stream: &mut TokenStream) {
+                let $name { $($variant),+, .. } = self;
+                let mut substream = TokenStream::new();
+                $(
+                    if !$variant.is_empty() {
+                        substream.extend(quote! { $variant: #$variant, });
+                    }
+                )+
+                $(
+                    $(
+                        if !$qvariant.is_empty() {
+                            substream.extend(quote! { $qvariant: #$qtype, });
+                        }
+                    ),*
+                )?
+                stream.extend(quote! {
+                    $prefix {
+                        #substream
+                        ..Default::default()
+                    }
+                });
+            }
+        }        
+    }
+}
 
 #[derive(Clone, Default, Debug)]
 enum UserSettable<T> {
@@ -28,6 +106,14 @@ impl<T> UserSettable<T> {
             }
         }
     }
+    
+    fn is_empty(&self) -> bool {
+        match self {
+            UserSettable::Value(_) => false,
+            UserSettable::Arbitrary(_) => false,
+            UserSettable::None => true
+        }
+    }
 }
 
 impl<T: Default> UserSettable<T> {
@@ -48,10 +134,29 @@ impl<T: Default> UserSettable<T> {
     }
 }
 
+impl<T: ToTokens> ToTokens for UserSettable<T> {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        stream.extend(match self {
+            UserSettable::Value(value) => value.to_token_stream(),
+            UserSettable::Arbitrary(stream) => stream.clone(),
+            UserSettable::None => quote! { Default::default() }
+        });
+    }
+}
+
 #[derive(Clone, Default, Debug)]
 struct Point<T> {
     x: UserSettable<T>,
     y: UserSettable<T>
+}
+
+impl<T: ToTokens> ToTokens for Point<T> {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        let Point { x, y } = self;
+        stream.extend(quote! {
+            mangui::taffy::Point { x: #x, y: #y }
+        });
+    }
 }
 
 #[derive(Clone, Default, Debug)]
@@ -60,12 +165,63 @@ struct Size<T> {
     height: UserSettable<T>
 }
 
+impl<T: ToTokens> ToTokens for Size<T> {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        let Size { width, height } = self;
+        stream.extend(quote! {
+            mangui::taffy::Size { width: #width, height: #height }
+        });
+    }
+}
+
+#[derive(Clone, Default, Debug)]
+struct Rect<T> {
+    pub left: UserSettable<T>,
+    pub right: UserSettable<T>,
+    pub top: UserSettable<T>,
+    pub bottom: UserSettable<T>,
+}
+
+impl<T: ToTokens> ToTokens for Rect<T> {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        let Rect { left, right, top, bottom } = self;
+        let mut substream = TokenStream::new();
+        if !left.is_empty() {
+            substream.extend(quote! { left: #left, });
+        }
+        if !right.is_empty() {
+            substream.extend(quote! { right: #right, });
+        }
+        if !top.is_empty() {
+            substream.extend(quote! { top: #top, });
+        }
+        if !bottom.is_empty() {
+            substream.extend(quote! { bottom: #bottom, });
+        }
+        if left.is_empty() || right.is_empty() || top.is_empty() || bottom.is_empty() {
+            substream.extend(quote! { ..Rect::zero() });
+        }
+        stream.extend(quote! {
+            mangui::taffy::geometry::Rect { #substream }
+        });
+    }
+}
+
 #[derive(Clone, Default, Debug)]
 struct Color {
     r: f32,
     g: f32,
     b: f32,
     a: f32
+}
+
+impl ToTokens for Color {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        let Color { r, g, b, a } = self;
+        stream.extend(quote! {
+            mangui::femtovg::Color::rgba(#r, #g, #b, #a)
+        });
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -84,11 +240,25 @@ impl Default for Paint {
     }
 }
 
+impl ToTokens for Paint {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        stream.extend(match self {
+            Paint::Color(color) => {
+                quote! {
+                    mangui::femtovg::Paint::color(#color)
+                }
+            }
+        });
+    }
+}
+
 #[derive(Copy, Clone, Default, Debug)]
 enum Cursor {
     #[default]
     Default
 }
+
+impl_enum_totokens!(Cursor, mangui::femtovg::Cursor, Default);
 
 #[derive(Clone, Default, Debug)]
 struct Transform {
@@ -96,6 +266,8 @@ struct Transform {
     pub scale: UserSettable<Size<f32>>,
     pub rotation: UserSettable<f32>
 }
+
+impl_struct_usersettable_totokens!(Transform, mangui::nodes::Transform, position, scale, rotation);
 
 #[derive(Clone, Default, Debug)]
 struct Style {
@@ -109,13 +281,11 @@ struct Style {
     pub transform: UserSettable<Transform>
 }
 
-#[derive(Clone, Default, Debug)]
-struct Rect<T> {
-    pub left: UserSettable<T>,
-    pub right: UserSettable<T>,
-    pub top: UserSettable<T>,
-    pub bottom: UserSettable<T>,
-}
+impl_struct_usersettable_totokens!(
+    Style,
+    mangui::nodes::Style,
+    layout, cursor, background, text_fill, font_size, line_height, border_radius, transform
+);
 
 #[derive(Clone, Default, Debug)]
 enum Position {
@@ -123,6 +293,8 @@ enum Position {
     Relative,
     Absolute,
 }
+
+impl_enum_totokens!(Position, mangui::taffy::Position, Relative, Absolute);
 
 #[derive(Clone, Default, Debug)]
 enum Display {
@@ -133,6 +305,8 @@ enum Display {
     None,
 }
 
+impl_enum_totokens!(Display, mangui::taffy::Display, Block, Flex, Grid, None);
+
 #[derive(Clone, Default, Debug)]
 enum Overflow {
     #[default]
@@ -142,6 +316,8 @@ enum Overflow {
     Scroll,
 }
 
+impl_enum_totokens!(Overflow, mangui::taffy::Overflow, Visible, Clip, Hidden, Scroll);
+
 #[derive(Clone, Default, Debug)]
 enum LengthPercentageAuto {
     Length(f32),
@@ -149,6 +325,8 @@ enum LengthPercentageAuto {
     #[default]
     Auto,
 }
+
+impl_enum_totokens!(LengthPercentageAuto, mangui::taffy::LengthPercentageAuto, Auto; Length(i), Percent(i));
 
 #[derive(Clone, Default, Debug)]
 enum Dimension {
@@ -158,11 +336,15 @@ enum Dimension {
     Auto,
 }
 
+impl_enum_totokens!(Dimension, mangui::taffy::Dimension, Auto; Length(i), Percent(i));
+
 #[derive(Clone, Debug)]
 enum LengthPercentage {
     Length(f32),
     Percent(f32),
 }
+
+impl_enum_totokens!(LengthPercentage, mangui::taffy::LengthPercentage; Length(i), Percent(i));
 
 impl Default for LengthPercentage {
     fn default() -> Self {
@@ -181,6 +363,8 @@ enum AlignItems {
     Stretch,
 }
 
+impl_enum_totokens!(AlignItems, mangui::taffy::AlignItems, Start, End, FlexStart, FlexEnd, Center, Baseline, Stretch);
+
 type AlignSelf = AlignItems;
 
 #[derive(Clone, Debug)]
@@ -197,6 +381,8 @@ enum AlignContent {
 }
 type JustifyContent = AlignContent;
 
+impl_enum_totokens!(AlignContent, mangui::taffy::AlignContent, Start, End, FlexStart, FlexEnd, Center, Stretch, SpaceBetween, SpaceEvenly, SpaceAround);
+
 #[derive(Clone, Default, Debug)]
 enum FlexDirection {
     #[default]
@@ -206,6 +392,8 @@ enum FlexDirection {
     ColumnReverse,
 }
 
+impl_enum_totokens!(FlexDirection, mangui::taffy::FlexDirection, Row, Column, RowReverse, ColumnReverse);
+
 #[derive(Clone, Default, Debug)]
 enum FlexWrap {
     #[default]
@@ -214,6 +402,8 @@ enum FlexWrap {
     WrapReverse,
 }
 
+impl_enum_totokens!(FlexWrap, mangui::taffy::FlexWrap, NoWrap, Wrap, WrapReverse);
+
 
 #[derive(Clone, Default, Debug)]
 struct Line<T> {
@@ -221,11 +411,30 @@ struct Line<T> {
     pub end: T,
 }
 
+impl<T: ToTokens> ToTokens for Line<T> {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        let Line { start, end } = self;
+        stream.extend(quote! {
+            mangui::taffy::Line::new(#start, #end)
+        });
+    }
+}
+
 #[derive(Clone, Debug)]
 struct MinMax<Min, Max> {
     pub min: Min,
     pub max: Max,
 }
+
+impl<Min: ToTokens, Max: ToTokens> ToTokens for MinMax<Min, Max> {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        let MinMax { min, max } = self;
+        stream.extend(quote! {
+            mangui::taffy::MinMax::new(#min, #max)
+        });
+    }
+}
+
 #[derive(Clone, Debug)]
 enum MinTrackSizingFunction {
     Fixed(LengthPercentage),
@@ -233,6 +442,9 @@ enum MinTrackSizingFunction {
     MaxContent,
     Auto,
 }
+
+impl_enum_totokens!(MinTrackSizingFunction, mangui::taffy::MinTrackSizingFunction, MinContent, MaxContent, Auto; Fixed(i));
+
 #[derive(Clone, Debug)]
 enum MaxTrackSizingFunction {
     Fixed(LengthPercentage),
@@ -243,6 +455,9 @@ enum MaxTrackSizingFunction {
     Fraction(f32),
 }
 type NonRepeatedTrackSizingFunction = MinMax<MinTrackSizingFunction, MaxTrackSizingFunction>;
+
+impl_enum_totokens!(MaxTrackSizingFunction, mangui::taffy::MaxTrackSizingFunction, MinContent, MaxContent, Auto; FitContent(i), Fraction(i), Fixed(i));
+
 #[derive(Clone, Debug)]
 enum GridTrackRepetition {
     AutoFill,
@@ -250,11 +465,15 @@ enum GridTrackRepetition {
     Count(u16),
 }
 
+impl_enum_totokens!(GridTrackRepetition, mangui::taffy::GridTrackRepetition, AutoFill, AutoFit; Count(i));
+
 #[derive(Clone, Debug)]
 enum TrackSizingFunction {
     Single(NonRepeatedTrackSizingFunction),
     Repeat(GridTrackRepetition, Vec<NonRepeatedTrackSizingFunction>),
 }
+
+impl_enum_totokens!(TrackSizingFunction, mangui::taffy::TrackSizingFunction; Single(i) | Repeat(repeat => (#repeat), functions => (vec![#( #functions ),*])));
 
 #[derive(Clone, Default, Debug)]
 enum GridAutoFlow {
@@ -265,8 +484,20 @@ enum GridAutoFlow {
     ColumnDense,
 }
 
+impl_enum_totokens!(GridAutoFlow, mangui::taffy::GridAutoFlow, Row, Column, RowDense, ColumnDense);
+
 #[derive(Clone, Debug)]
 struct GridLine(i16);
+
+impl ToTokens for GridLine {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        let GridLine(line) = self;
+        stream.extend(quote! {
+            mangui::taffy::GridLine::new(#line)
+        });
+    }
+}
+
 #[derive(Clone, Default, Debug)]
 enum GridPlacement {
     #[default]
@@ -274,6 +505,10 @@ enum GridPlacement {
     Line(GridLine),
     Span(u16),
 }
+
+impl_enum_totokens!(GridPlacement, mangui::taffy::GridPlacement, Auto; Line(i), Span(i));
+
+/// Styles for positioning. Note that grid template rows/columns and auto rows/columns are not supported yet (generated)
 #[derive(Clone, Default, Debug)]
 struct TaffyStyle {
     pub display: UserSettable<Display>,
@@ -308,6 +543,17 @@ struct TaffyStyle {
     pub grid_row: UserSettable<Line<GridPlacement>>,
     pub grid_column: UserSettable<Line<GridPlacement>>,
 }
+
+impl_struct_usersettable_totokens!(
+    TaffyStyle,
+    mangui::taffy::Style,
+    display, overflow, scrollbar_width, position, inset, size, min_size, max_size,
+    aspect_ratio, margin, padding, border,
+    align_items, align_self, justify_items, justify_self, align_content, justify_content,
+    gap,
+    flex_direction, flex_wrap, flex_basis, flex_grow, flex_shrink,
+    grid_auto_flow, grid_row, grid_column
+);
 
 trait ValueToUserSettable<T> {
     fn to_user_settable(self, span: Span, inverse: bool) -> Result<UserSettable<T>, RuleParseError>;
@@ -479,7 +725,6 @@ struct RuleParseError {
 #[proc_macro]
 pub fn uno(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let item = TokenStream::from(item);
-    let mut output = TokenStream::new();
     dbg!(&item);
     let rules = parse_rules(item);
 
@@ -503,9 +748,9 @@ pub fn uno(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
         }
     };
 
-    dbg!(style);
+    dbg!(&style);
 
-    output.into()
+    style.to_token_stream().into()
 }
 
 fn process_rules(rules: Vec<Rule>) -> Result<Style, RuleParseError> {

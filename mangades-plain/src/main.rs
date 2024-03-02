@@ -4,7 +4,7 @@ use mangui::{MainEntry, SharedNode};
 use mangui::femtovg::Paint;
 use mangui::nodes::text::Text;
 use mangui::nodes::{Style, TaffyStyle, ToShared};
-use mangui::taffy::{AlignItems, FlexDirection, JustifyContent, LengthPercentage, Rect};
+use mangui::taffy::{AlignItems, FlexDirection, JustifyContent, LengthPercentage, LengthPercentageAuto, Point, Rect};
 use uno_gen::uno;
 use crate::anilist::load_demo_async;
 use crate::tokens::TEXT_LARGE;
@@ -57,16 +57,11 @@ async fn main() {
                 ..Default::default()
             })
             .to_shared();
-        let i = 2;
-        uno!(gap-1 flex p-5px mt-1 mb-2 ml-[i] overflow-hidden);
+        let i = LengthPercentageAuto::Length(5.);
         let title = Text::new("Mangades".to_owned(), TEXT_LARGE)
             .style(Style {
-                layout: TaffyStyle {
-                    padding: Rect { left: LengthPercentage::Length(10.), right: LengthPercentage::Length(10.), top: LengthPercentage::Length(10.), bottom: LengthPercentage::Length(10.) },
-                    ..Default::default()
-                },
                 text_fill: Some(Paint::color(*tokens::WHITE)),
-                ..Default::default()
+                ..uno!(p-10)
             })
             .to_shared();
         
