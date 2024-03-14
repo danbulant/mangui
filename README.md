@@ -21,3 +21,8 @@ Experimental GUI framework, inspired by DOM.
 ## Usage
 
 Similar to DOM, there are Nodes, which are recursive. They implement a Node trait, which only requires to get styles (for layouting with Taffy), children and a draw function.
+
+## Rusalka
+
+Experimental 'svelte'-like framework for mangui.
+Doesn't work very well yet.
