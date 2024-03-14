@@ -1,6 +1,4 @@
 use std::fmt::{Debug, Formatter};
-use std::sync::{Arc, RwLock};
-use femtovg::{Paint, Path};
 use crate::{nodes::{Node, NodeChildren, Style}, events::handler::EventHandlerDatabase, WeakNode, SharedNode};
 use taffy::style::Dimension;
 use crate::nodes::primitives::draw_rect;

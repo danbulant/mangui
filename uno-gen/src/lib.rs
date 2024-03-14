@@ -42,7 +42,7 @@ macro_rules! impl_enum_totokens {
                     )?
                 });
             }
-        }        
+        }
     }
 }
 
@@ -76,7 +76,7 @@ macro_rules! impl_struct_usersettable_totokens {
                     }
                 });
             }
-        }        
+        }
     }
 }
 
@@ -106,7 +106,7 @@ impl<T> UserSettable<T> {
             }
         }
     }
-    
+
     fn is_empty(&self) -> bool {
         match self {
             UserSettable::Value(_) => false,
@@ -830,6 +830,14 @@ fn process_rules(rules: Vec<Rule>) -> Result<Style, RuleParseError> {
             "overflow_y" => {
                 let value = value.to_user_settable(name_span, inverse)?;
                 style.layout.require_non_arbitrary()?.overflow.require_non_arbitrary()?.y = value;
+            },
+            "rounded" => {
+                if let Some(value) = value {
+                    let value = value.to_user_settable(name_span, inverse)?;
+                    style.border_radius = value;  
+                } else {
+                    style.border_radius = UserSettable::Value(8.);
+                }
             },
             "layout" => {
                 if let Some(value) = value {

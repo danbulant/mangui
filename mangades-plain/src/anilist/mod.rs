@@ -5,74 +5,74 @@ use mangui::nodes::image::ImageLoad;
 
 #[derive(Deserialize, Debug)]
 struct GraphqlResponse<T> {
-    data: T
+    pub(crate) data: T
 }
 
 #[derive(Deserialize, Debug)]
 pub struct MediaListCollectionData {
     #[serde(rename = "MediaListCollection")]
-    media_list_collection: MediaListCollection
+    pub(crate) media_list_collection: MediaListCollection
 }
 
 #[derive(Deserialize, Debug)]
 pub struct MediaListCollection {
-    lists: Vec<MediaList>
+    pub(crate) lists: Vec<MediaList>
 }
 
 #[derive(Deserialize, Debug)]
-struct MediaList {
-    name: String,
+pub(crate) struct MediaList {
+    pub(crate) name: String,
     #[serde(rename = "isCustomList")]
-    is_custom_list: bool,
-    status: String,
+    pub(crate) is_custom_list: bool,
+    pub(crate) status: String,
     #[serde(rename = "isSplitCompletedList")]
-    is_split_completed_list: bool,
-    entries: Vec<MediaListEntry>,
+    pub(crate) is_split_completed_list: bool,
+    pub(crate) entries: Vec<MediaListEntry>,
 }
 
 #[derive(Deserialize, Debug)]
-struct MediaListEntry {
-    status: String,
-    progress: i32,
+pub(crate) struct MediaListEntry {
+    pub(crate) status: String,
+    pub(crate) progress: i32,
     #[serde(rename = "progressVolumes")]
-    progress_volumes: i32,
-    repeat: i32,
-    priority: i32,
-    private: bool,
-    notes: Option<String>,
-    score: f32,
-    media: MediaEntry,
+    pub(crate) progress_volumes: i32,
+    pub(crate) repeat: i32,
+    pub(crate) priority: i32,
+    pub(crate) private: bool,
+    pub(crate) notes: Option<String>,
+    pub(crate) score: f32,
+    pub(crate) media: MediaEntry,
 }
 
 #[derive(Deserialize, Debug)]
-struct MediaEntry {
-    id: i32,
-    title: MediaTitle,
-    status: String,
-    chapters: Option<i32>,
-    volumes: Option<i32>,
+pub(crate) struct MediaEntry {
+    pub(crate) id: i32,
+    pub(crate) title: MediaTitle,
+    pub(crate) status: String,
+    pub(crate) chapters: Option<i32>,
+    pub(crate) volumes: Option<i32>,
     #[serde(rename = "coverImage")]
-    cover_image: CoverImage,
+    pub(crate) cover_image: CoverImage,
     #[serde(rename = "isAdult")]
-    is_adult: bool,
+    pub(crate) is_adult: bool,
     #[serde(rename = "isFavourite")]
-    is_favourite: bool,
+    pub(crate) is_favourite: bool,
 }
 
 #[derive(Deserialize, Debug)]
-struct MediaTitle {
-    romaji: String,
-    english: Option<String>,
-    native: String,
+pub(crate) struct MediaTitle {
+    pub(crate) romaji: String,
+    pub(crate) english: Option<String>,
+    pub(crate) native: String,
     #[serde(rename = "userPreferred")]
-    user_preferred: String,
+    pub(crate) user_preferred: String,
 }
 
 #[derive(Deserialize, Debug)]
-struct CoverImage {
-    large: String,
-    medium: String,
-    color: Option<String>,
+pub(crate) struct CoverImage {
+    pub(crate) large: String,
+    pub(crate) medium: String,
+    pub(crate) color: Option<String>,
 }
 
 // pub fn load_demo() -> MediaListCollection {

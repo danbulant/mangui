@@ -77,7 +77,15 @@ pub struct Style {
     /// border radius in pixels
     pub border_radius: f32,
     /// Various transformation (position, scale and rotation)
-    pub transform: Option<Transform>
+    pub transform: Option<Transform>,
+    /// sets scroll offset for x-axis
+    /// 0.0 is the default value
+    /// you cannot scroll outside the layout - render function will clip the value in that case
+    pub scroll_x: f32,
+    /// sets scroll offset for y-axis
+    /// 0.0 is the default value
+    /// you cannot scroll outside the layout - render function will clip the value in that case
+    pub scroll_y: f32,
 }
 
 type NodeChildren = Vec<SharedNode>;
@@ -295,6 +303,9 @@ pub trait Node: Debug + Send {
 
 pub trait ToShared {
     fn to_shared(self) -> SharedNode;
+    fn to_arcmutex(self) -> Arc<Mutex<Self>> where Self: Sized {
+        Arc::new(Mutex::new(self))
+    }
 }
 
 impl<T: Node + 'static> ToShared for T {
@@ -397,13 +408,20 @@ pub(crate) fn render_recursively(node: &SharedNode, context: &mut RenderContext)
     let sself = node.clone();
     context.canvas.save();
     let offset = styles.transform.as_ref().map(|t| (t.position.x, t.position.y)).unwrap_or((0., 0.));
-    context.canvas.translate(layout.location.x + offset.0, layout.location.y + offset.1);
+    let scroll_offset = (styles.scroll_x, styles.scroll_y);
+    let content_size = layout.content_size;
+    let visible_size = layout.size;
+    let scroll_offset = (scroll_offset.0.min(content_size.width - visible_size.width).max(0.), scroll_offset.1.min(content_size.height - visible_size.height).max(0.));
+    context.canvas.translate(
+        layout.location.x + offset.0 - scroll_offset.0,
+        layout.location.y + offset.1 - scroll_offset.1
+    );
     if let Some(transform) = &styles.transform {
         context.canvas.scale(transform.scale.width, transform.scale.height);
         context.canvas.rotate(transform.rotation);
     }
-    let clip_width = matches!(styles.layout.overflow.x, Overflow::Hidden | Overflow::Clip);
-    let clip_height = matches!(styles.layout.overflow.y, Overflow::Hidden | Overflow::Clip);
+    let clip_width = matches!(styles.layout.overflow.x, Overflow::Hidden | Overflow::Clip | Overflow::Scroll);
+    let clip_height = matches!(styles.layout.overflow.y, Overflow::Hidden | Overflow::Clip | Overflow::Scroll);
     if clip_width || clip_height {
         context.canvas.scissor(
             0.,
@@ -413,13 +431,14 @@ pub(crate) fn render_recursively(node: &SharedNode, context: &mut RenderContext)
         );
     }
     drop(read_node);
-    sself.lock().unwrap().render_pre_children(context, layout);
-    if let Some(children) = sself.lock().unwrap().children() {
+    let mut locked = sself.lock().unwrap();
+    locked.render_pre_children(context, layout);
+    if let Some(children) = locked.children() {
         for child in children {
             render_recursively(child, context);
         }
     }
-    sself.lock().unwrap().render_post_children(context, layout);
+    locked.render_post_children(context, layout);
     context.canvas.restore();
 }
 

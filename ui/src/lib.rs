@@ -35,6 +35,7 @@ pub mod events;
 pub use taffy;
 pub use femtovg;
 pub use cosmic_text;
+pub use winit::dpi;
 
 pub type CurrentRenderer = OpenGl;
 pub type SharedNode = Arc<Mutex<dyn Node>>;
@@ -64,7 +65,7 @@ pub struct MainEntry {
 /// The event loop only returns when the window is closed, and all the resources regarding the window are freed.
 /// Note that the DOM tree may not be destroyed if you hold a reference to it, and the DOM tree can be used again, although it's discouraged -
 /// your app should exit at this point and only do cleanup.
-pub fn run_event_loop(entry: MainEntry) -> () {
+pub fn run_event_loop(entry: MainEntry) -> Result<(), winit::error::EventLoopError> {
     let event_loop = EventLoop::new().unwrap();
     let (buffer_context, gl_display, window, surface) = create_window(&event_loop);
 
@@ -107,9 +108,47 @@ pub fn run_event_loop(entry: MainEntry) -> () {
     let focus_path: Option<Vec<WeakNode>> = None;
     let mut mouse_values: HashMap<DeviceId, MouseValue> = HashMap::new();
 
-    event_loop.run(move |event, target| match event {
+    let res = event_loop.run(move |event, target| match event {
         Event::WindowEvent { event, .. } => match event {
-            WindowEvent::MouseWheel { device_id: _, delta: _, phase: _, .. } => {},
+            WindowEvent::MouseWheel { device_id, delta, phase } => {
+                let default = MouseValue {
+                    last_location: Location::new(0., 0.),
+                    buttons: 0
+                };
+                let mouse_value = mouse_values.get(&device_id)
+                    .unwrap_or(&default);
+
+                let path = get_element_at(&root, &context, mouse_value.last_location);
+
+                if let Some(path) = path {
+                    let target_layout = context.node_layout.get(path.last().unwrap());
+                    let target_layout = match target_layout {
+                        Some(target_layout) => target_layout,
+                        None => { return; }
+                    };
+                    let target_layout = context.taffy.layout(target_layout.to_owned()).unwrap();
+                    let event = NodeEvent {
+                        target: path.last().unwrap().clone(),
+                        path: path.clone(),
+                        event: events::InnerEvent::Wheel {
+                            delta,
+                            phase,
+                            mouse: MouseEvent {
+                                button: None,
+                                buttons: mouse_value.buttons,
+                                client: mouse_value.last_location,
+                                movement: Location::new(0., 0.),
+                                device: device_id,
+                                modifiers,
+                                offset: mouse_value.last_location - target_layout.location.into()
+                            }
+                        }
+                    };
+
+                    run_event_handlers(path, event);
+                    window.request_redraw();
+                }
+            },
             WindowEvent::CursorMoved { device_id, position, .. } => {
                 let mouse_value = mouse_values.get(&device_id);
                 let (movement, location, mouse_value) = match mouse_value {
@@ -168,9 +207,9 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                 match &focus_path {
                     Some(path) => {
                         let strong_focus_path: Option<Vec<SharedNode>> = convert_vec_option_to_option_vec(path.iter().map(|weak| weak.upgrade()).collect());
-                        if matches!(strong_focus_path, None) { return; }
+                        if strong_focus_path.is_none() { return; }
                         let strong_focus_path = strong_focus_path.unwrap();
-                        if strong_focus_path.len() == 0 { return; }
+                        if strong_focus_path.is_empty() { return; }
 
                         let focus_event = NodeEvent {
                             target: strong_focus_path.last().unwrap().clone(),
@@ -197,7 +236,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
             WindowEvent::MouseInput { device_id, state, button, .. } => {
                 let mouse_value = mouse_values.get(&device_id);
                 let mut mouse_value = match mouse_value {
-                    Some(mouse_value) => mouse_value.clone(),
+                    Some(mouse_value) => *mouse_value,
                     None => { return; } // Mouse move should be fired first
                 };
                 mouse_value.update_buttons(button, state);
@@ -205,36 +244,33 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                 let location = mouse_value.last_location;
                 let path = get_element_at(&root, &context, location);
 
-                match path {
-                    Some(path) => {
-                        let target_layout = context.node_layout.get(path.last().unwrap());
-                        let target_layout = match target_layout {
-                            Some(target_layout) => target_layout,
-                            None => { return; }
-                        };
-                        let target_layout = context.taffy.layout(target_layout.to_owned()).unwrap();
-                        let mevent = MouseEvent {
-                            button: Some(button),
-                            buttons: mouse_value.buttons,
-                            client: location,
-                            movement: Location::new(0., 0.),
-                            device: device_id,
-                            modifiers,
-                            offset: location - target_layout.location.into()
-                        };
-                        let event = NodeEvent {
-                            target: path.last().unwrap().clone(),
-                            path: path.clone(),
-                            event: match state {
-                                winit::event::ElementState::Pressed => events::InnerEvent::MouseDown(mevent),
-                                winit::event::ElementState::Released => events::InnerEvent::MouseUp(mevent)
-                            }
-                        };
+                if let Some(path) = path {
+                    let target_layout = context.node_layout.get(path.last().unwrap());
+                    let target_layout = match target_layout {
+                        Some(target_layout) => target_layout,
+                        None => { return; }
+                    };
+                    let target_layout = context.taffy.layout(target_layout.to_owned()).unwrap();
+                    let mevent = MouseEvent {
+                        button: Some(button),
+                        buttons: mouse_value.buttons,
+                        client: location,
+                        movement: Location::new(0., 0.),
+                        device: device_id,
+                        modifiers,
+                        offset: location - target_layout.location.into()
+                    };
+                    let event = NodeEvent {
+                        target: path.last().unwrap().clone(),
+                        path: path.clone(),
+                        event: match state {
+                            winit::event::ElementState::Pressed => events::InnerEvent::MouseDown(mevent),
+                            winit::event::ElementState::Released => events::InnerEvent::MouseUp(mevent)
+                        }
+                    };
 
-                        window.request_redraw();
-                        run_event_handlers(path, event);
-                    },
-                    None => {}
+                    window.request_redraw();
+                    run_event_handlers(path, event);
                 }
             },
             WindowEvent::CloseRequested => target.exit(),
@@ -299,7 +335,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                     // dbg!("recomputed");
                 }
                 // Clear the render queue
-                while let Ok(_) = entry.render.try_recv() {}
+                while entry.render.try_recv().is_ok() {}
                 render(&buffer_context, &surface, &window, &mut context, &root);
             }
             _ => {}
@@ -310,7 +346,7 @@ pub fn run_event_loop(entry: MainEntry) -> () {
                     // dbg!(refresh_rate);
                     // some leeway before vsync
                     // target.set_control_flow(ControlFlow::wait_duration(Duration::from_millis(1000 / refresh_rate as u64 - 100/refresh_rate as u64)));
-                    if let Ok(_) = entry.render.try_recv() {
+                    if entry.render.try_recv().is_ok() {
                         window.request_redraw();
                     }
             //     }
@@ -318,7 +354,8 @@ pub fn run_event_loop(entry: MainEntry) -> () {
         },
         // In the future, window should be created after resuming from suspend (for android support)
         _ => {}
-    }).unwrap();
+    });
+    res
 }
 
 /// I have no idea if there's a better way to do this in rust...
