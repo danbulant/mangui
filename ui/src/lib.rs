@@ -11,10 +11,8 @@ use glutin::surface::Surface;
 use glutin::{context::PossiblyCurrentContext, display::Display};
 use glutin_winit::DisplayBuilder;
 use nodes::{get_element_at, run_event_handlers, run_single_event_handlers};
-use raw_window_handle::HasRawWindowHandle;
 use winit::event::{Event, WindowEvent, Modifiers, DeviceId};
 use winit::event_loop::EventLoop;
-use winit::window::WindowBuilder;
 use winit::{dpi::PhysicalSize, window::Window};
 
 use glutin::{
@@ -36,6 +34,7 @@ pub use taffy;
 pub use femtovg;
 pub use cosmic_text;
 pub use winit::dpi;
+use winit::raw_window_handle::HasRawWindowHandle;
 
 pub type CurrentRenderer = OpenGl;
 pub type SharedNode = Arc<Mutex<dyn Node>>;
@@ -365,13 +364,14 @@ fn convert_vec_option_to_option_vec<T>(vec: Vec<Option<T>>) -> Option<Vec<T>> {
 }
 
 fn create_window(event_loop: &EventLoop<()>) -> (PossiblyCurrentContext, Display, Window, Surface<WindowSurface>) {
-    let window_builder = WindowBuilder::new()
-        .with_inner_size(PhysicalSize::new(1000., 600.))
-        .with_title("Mangui test");
+    // let window_builder = WindowBuilder::new()
+    //     .with_inner_size(PhysicalSize::new(1000., 600.))
+    //     .with_title("Mangui test");
+    
 
     let template = ConfigTemplateBuilder::new().with_alpha_size(8);
 
-    let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
+    let display_builder = DisplayBuilder::new().with_window_attributes(Some(Window::default_attributes().with_title("Mangui test")));
 
     let (window, gl_config) = display_builder
         .build(event_loop, template, |mut configs| configs.next().unwrap())
@@ -381,13 +381,13 @@ fn create_window(event_loop: &EventLoop<()>) -> (PossiblyCurrentContext, Display
 
     let gl_display = gl_config.display();
 
-    let context_attributes = ContextAttributesBuilder::new().build(Some(window.raw_window_handle()));
+    let context_attributes = ContextAttributesBuilder::new().build(Some(window.raw_window_handle().unwrap()));
 
     let mut not_current_gl_context =
         Some(unsafe { gl_display.create_context(&gl_config, &context_attributes).unwrap() });
 
     let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-        window.raw_window_handle(),
+        window.raw_window_handle().unwrap(),
         NonZeroU32::new(1000).unwrap(),
         NonZeroU32::new(600).unwrap(),
     );

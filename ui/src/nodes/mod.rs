@@ -1,5 +1,5 @@
 pub mod layout;
-pub mod empty;
+// pub mod empty;
 pub mod primitives;
 pub mod image;
 pub mod text;
@@ -141,7 +141,7 @@ pub trait Node: Debug + Send {
     /// Return style.
     ///insert
     /// If you're using [`Style`] in your struct directly, your implementation can be as simple as:
-    /// ```rust
+    ///```rust
     /// fn style(&self) -> &Style { &self.style }
     /// ```
     fn style(&self) -> &Style;
