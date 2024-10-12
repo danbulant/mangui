@@ -2,6 +2,8 @@
 
 Experimental GUI framework, inspired by DOM.
 
+Most likely abandoned in favor of [cushy](https://github.com/khonsulabs/cushy) - it has a nice reactive model that just works, uses wgpu (more platforms than opengl) and doesn't need weird styling like here.
+
 ## Features
 
 - uses Taffy for layouts - Grid and Flexbox support
